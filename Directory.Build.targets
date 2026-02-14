@@ -1,7 +1,0 @@
-<Project>
-  <!--
-    Override Avalonia's telemetry target in this workspace so builds do not fail
-    in sandboxed environments that cannot write to ~/Library/Application Support.
-  -->
-  <Target Name="AvaloniaStats" Condition="'$(MSBuildProjectName)' == 'YoutubeDownloader.UI'" />
-</Project>

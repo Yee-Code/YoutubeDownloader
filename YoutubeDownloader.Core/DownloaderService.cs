@@ -1,14 +1,19 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace YoutubeDownloader.Core
 {
     public class DownloaderService
     {
+        private static readonly Regex ProgressRegex = new(@"\[download\]\s+(\d+\.?\d*)%", RegexOptions.Compiled);
+        private static readonly Regex EtaRegex = new(@"ETA\s+((?:\d{1,2}:)?\d{1,2}:\d{2})", RegexOptions.Compiled);
+
         public event EventHandler<string>? OutputReceived;
         public event EventHandler<string>? ErrorReceived;
+        public event EventHandler<TimeSpan?>? EstimatedTimeRemainingChanged;
 
         public async Task<bool> IsYtDlpInstalledAsync()
         {
@@ -47,13 +52,22 @@ namespace YoutubeDownloader.Core
             }
         }
 
-        public async Task<int> DownloadVideoAsync(string videoUrl)
+        public event EventHandler<double>? ProgressChanged;
+
+        public async Task<int> DownloadVideoAsync(string videoUrl, string? outputDirectory = null)
         {
             // Construct arguments for yt-dlp
             // -f "bestvideo+bestaudio/best" : Download best video and best audio and merge them. Fallback to best single file.
             // --merge-output-format mp4 : Ensure output is mp4
             // -o "%(title)s.%(ext)s" : Output filename format
-            string arguments = $"-f \"bestvideo+bestaudio/best\" --merge-output-format mp4 -o \"%(title)s.%(ext)s\" \"{videoUrl}\"";
+            // --newline: Output progress on new lines for easier parsing
+            string outputTemplate = "%(title)s.%(ext)s";
+            string arguments = $"-f \"bestvideo+bestaudio/best\" --merge-output-format mp4 -o \"{outputTemplate}\" --newline \"{videoUrl}\"";
+
+            if (!string.IsNullOrWhiteSpace(outputDirectory))
+            {
+                arguments = $"-P \"{outputDirectory}\" " + arguments;
+            }
 
             var processStartInfo = new ProcessStartInfo
             {
@@ -68,7 +82,25 @@ namespace YoutubeDownloader.Core
             using (var process = new Process())
             {
                 process.StartInfo = processStartInfo;
-                process.OutputDataReceived += (sender, e) => { if (e.Data != null) OutputReceived?.Invoke(this, e.Data); };
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (e.Data != null)
+                    {
+                        // Parse progress
+                        var match = ProgressRegex.Match(e.Data);
+                        if (match.Success && double.TryParse(match.Groups[1].Value, out double progress))
+                        {
+                            ProgressChanged?.Invoke(this, progress);
+
+                            TimeSpan? eta = TryParseEta(e.Data);
+                            EstimatedTimeRemainingChanged?.Invoke(this, eta);
+                        }
+                        else
+                        {
+                            OutputReceived?.Invoke(this, e.Data);
+                        }
+                    }
+                };
                 process.ErrorDataReceived += (sender, e) => { if (e.Data != null) ErrorReceived?.Invoke(this, e.Data); };
 
                 process.Start();
@@ -76,9 +108,26 @@ namespace YoutubeDownloader.Core
                 process.BeginErrorReadLine();
 
                 await process.WaitForExitAsync();
+                EstimatedTimeRemainingChanged?.Invoke(this, null);
 
                 return process.ExitCode;
             }
+        }
+
+        private static TimeSpan? TryParseEta(string outputLine)
+        {
+            var match = EtaRegex.Match(outputLine);
+            if (!match.Success)
+            {
+                return null;
+            }
+
+            if (TimeSpan.TryParse(match.Groups[1].Value, out var eta))
+            {
+                return eta;
+            }
+
+            return null;
         }
     }
 }

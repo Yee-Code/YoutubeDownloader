@@ -31,6 +31,13 @@ namespace YoutubeDownloader
             // Subscribe to events
             downloader.OutputReceived += (sender, data) => Console.WriteLine(data);
             downloader.ErrorReceived += (sender, data) => Console.WriteLine($"[Error/Info] {data}");
+            downloader.ProgressChanged += (sender, progress) =>
+            {
+                int width = 50; // Width of the progress bar
+                int filled = (int)(width * progress / 100);
+                string bar = new string('#', filled) + new string('-', width - filled);
+                Console.Write($"\rProgress: [{bar}] {progress:F1}%");
+            };
 
             while (true)
             {

@@ -9,11 +9,35 @@
         Title="YouTube Downloader"
         TransparencyLevelHint="AcrylicBlur"
         Background="Transparent"
+        WindowStartupLocation="Manual"
+        Width="{Binding WindowWidth, Mode=TwoWay}"
+        Height="{Binding WindowHeight, Mode=TwoWay}"
         ExtendClientAreaToDecorationsHint="True">
 
     <Design.DataContext>
         <vm:MainWindowViewModel/>
     </Design.DataContext>
+
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <NativeMenuItem Header="File">
+                <NativeMenu>
+                    <NativeMenuItem Header="Open" Gesture="Cmd+O"/>
+                </NativeMenu>
+            </NativeMenuItem>
+            <NativeMenuItem Header="Edit">
+                <NativeMenu>
+                    <NativeMenuItem Header="Undo" Gesture="Cmd+Z"/>
+                    <NativeMenuItem Header="Redo" Gesture="Cmd+Shift+Z"/>
+                    <NativeMenuItemSeparator/>
+                    <NativeMenuItem Header="Cut" Gesture="Cmd+X"/>
+                    <NativeMenuItem Header="Copy" Gesture="Cmd+C"/>
+                    <NativeMenuItem Header="Paste" Gesture="Cmd+V"/>
+                    <NativeMenuItem Header="Select All" Gesture="Cmd+A"/>
+                </NativeMenu>
+            </NativeMenuItem>
+        </NativeMenu>
+    </NativeMenu.Menu>
 
     <Panel>
         <ExperimentalAcrylicBorder IsHitTestVisible="False">
@@ -42,6 +66,22 @@
                          Height="40"
                          VerticalContentAlignment="Center"/>
                 
+                <Grid ColumnDefinitions="*, Auto" Margin="0,5">
+                    <TextBox Grid.Column="0" Watermark="Output Path (Default: Downloads)" 
+                             Text="{Binding DownloadPath}"
+                             IsEnabled="{Binding !IsDownloading}"
+                             Height="40"
+                             VerticalContentAlignment="Center"
+                             Margin="0,0,10,0"/>
+                    <Button Grid.Column="1" Content="..." 
+                            Command="{Binding BrowseCommand}"
+                            CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+                            IsEnabled="{Binding !IsDownloading}"
+                            Height="40" Width="40"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"/>
+                </Grid>
+
                 <Button Content="Download" 
                         Command="{Binding DownloadCommand}"
                         IsEnabled="{Binding !IsDownloading}"
@@ -55,13 +95,15 @@
 
             <!-- Status & Progress -->
             <StackPanel Grid.Row="2" Margin="0,20,0,10" Spacing="5">
-                <TextBlock Text="{Binding StatusMessage}" 
-                           HorizontalAlignment="Center"
-                           Foreground="#DDFFFFFF"/>
-                
-                <ProgressBar IsIndeterminate="{Binding IsDownloading}" 
+                <ProgressBar Value="{Binding ProgressValue}"
+                             Maximum="100"
+                             ShowProgressText="True"
                              IsVisible="{Binding IsDownloading}"
-                             Height="4"/>
+                             Height="20"/>
+                <TextBlock Text="{Binding EstimatedTimeRemaining}"
+                           IsVisible="{Binding IsDownloading}"
+                           Foreground="#DDFFFFFF"
+                           FontSize="12"/>
             </StackPanel>
 
             <!-- Log Output -->
