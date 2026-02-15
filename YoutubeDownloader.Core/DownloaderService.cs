@@ -65,13 +65,18 @@ namespace YoutubeDownloader.Core
 
         public async Task<int> DownloadVideoAsync(string videoUrl, string? outputDirectory = null)
         {
+            // Resolve ffmpeg path explicitly
+            string ffmpegPath = DependencyUtils.GetExecutablePath("ffmpeg");
+            string ffmpegDir = Path.GetDirectoryName(ffmpegPath) ?? string.Empty;
+
             // Construct arguments for yt-dlp
             // -f "bestvideo+bestaudio/best" : Download best video and best audio and merge them. Fallback to best single file.
             // --merge-output-format mp4 : Ensure output is mp4
             // -o "%(title)s.%(ext)s" : Output filename format
             // --newline: Output progress on new lines for easier parsing
+            // --ffmpeg-location: Explicitly tell yt-dlp where ffmpeg is
             string outputTemplate = "%(title)s.%(ext)s";
-            string arguments = $"-f \"bestvideo+bestaudio/best\" --merge-output-format mp4 -o \"{outputTemplate}\" --newline \"{videoUrl}\"";
+            string arguments = $"-f \"bestvideo+bestaudio/best\" --merge-output-format mp4 --ffmpeg-location \"{ffmpegPath}\" -o \"{outputTemplate}\" --newline \"{videoUrl}\"";
 
             if (!string.IsNullOrWhiteSpace(outputDirectory))
             {
@@ -89,6 +94,20 @@ namespace YoutubeDownloader.Core
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+
+            // Vital: Add common paths to PATH environment variable for the child process
+            // This ensures node, ffmpeg, and other tools can be found even if not bundling
+            if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX))
+            {
+                string pathEnv = processStartInfo.EnvironmentVariables["PATH"] ?? string.Empty;
+                string newPath = $"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:{pathEnv}";
+                // Also add the directory where ffmpeg was found
+                if (!string.IsNullOrEmpty(ffmpegDir) && !newPath.Contains(ffmpegDir))
+                {
+                    newPath = $"{ffmpegDir}:{newPath}";
+                }
+                processStartInfo.EnvironmentVariables["PATH"] = newPath;
+            }
 
             using (var process = new Process())
             {

@@ -59,12 +59,12 @@ namespace YoutubeDownloader.Core
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) || RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
                 string[] commonPaths =
-                {
+                [
                     "/opt/homebrew/bin", // Apple Silicon Homebrew
                     "/usr/local/bin",    // Intel Homebrew
                     "/usr/bin",
                     "/bin"
-                };
+                ];
 
                 log?.Invoke($"[DependencyUtils] Checking common install locations...");
                 foreach (var path in commonPaths)
