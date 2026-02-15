@@ -5,6 +5,17 @@
              RequestedThemeVariant="Dark">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
+    <NativeMenu.Menu>
+        <NativeMenu>
+            
+            <NativeMenuItem Header="About YouTube Downloader"
+                    Click="OnAboutClicked"/>
+            <NativeMenuItem Header="Preferences..."
+                    Gesture="Cmd+,"
+                    Click="OnPreferencesClicked"/>
+        </NativeMenu>
+    </NativeMenu.Menu>
+
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
