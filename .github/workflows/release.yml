@@ -33,6 +33,23 @@ jobs:
       with:
         dotnet-version: 10.0.x
 
+    - name: Update app.manifest version (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        VERSION=$(cat VERSION)
+        if [[ "${{ runner.os }}" == "macOS" ]]; then
+          sed -i '' "s/assemblyIdentity version=\"[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\"/assemblyIdentity version=\"${VERSION}.0\"/" YoutubeDownloader.UI/app.manifest
+        else
+          sed -i "s/assemblyIdentity version=\"[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\"/assemblyIdentity version=\"${VERSION}.0\"/" YoutubeDownloader.UI/app.manifest
+        fi
+
+    - name: Update app.manifest version (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        $version = Get-Content VERSION
+        $manifestPath = "YoutubeDownloader.UI/app.manifest"
+        (Get-Content $manifestPath) -replace 'assemblyIdentity version="[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"', "assemblyIdentity version=""$version.0""" | Set-Content $manifestPath
+
     # --- Windows/Linux Build ---
     - name: Publish (Windows/Linux)
       if: matrix.os != 'macos-latest'
@@ -79,6 +96,7 @@ jobs:
         PUBLISH_DIR="release/${{ matrix.target }}/publish"
         ICON_SOURCE="YoutubeDownloader.UI/App.ico"
         ICON_ICNS="YoutubeDownloader.UI/App.icns"
+        VERSION=$(cat VERSION)
         
         # Icon conversion
         mkdir -p YoutubeDownloader.UI/App.iconset
@@ -116,7 +134,7 @@ jobs:
             <key>CFBundleIdentifier</key>
             <string>com.leeyu.$APP_NAME</string>
             <key>CFBundleVersion</key>
-            <string>1.0.0</string>
+            <string>$VERSION</string>
             <key>CFBundlePackageType</key>
             <string>APPL</string>
             <key>CFBundleSignature</key>
