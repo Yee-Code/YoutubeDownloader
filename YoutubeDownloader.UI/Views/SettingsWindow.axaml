@@ -1,0 +1,46 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:YoutubeDownloader.UI.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
+        x:Class="YoutubeDownloader.UI.Views.SettingsWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Settings"
+        Width="400" Height="300"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        TransparencyLevelHint="AcrylicBlur"
+        Background="Transparent"
+        ExtendClientAreaToDecorationsHint="True">
+
+    <Panel>
+        <ExperimentalAcrylicBorder IsHitTestVisible="False">
+            <ExperimentalAcrylicBorder.Material>
+                <ExperimentalAcrylicMaterial
+                    BackgroundSource="Digger"
+                    TintColor="Black"
+                    TintOpacity="1"
+                    MaterialOpacity="0.85" />
+            </ExperimentalAcrylicBorder.Material>
+        </ExperimentalAcrylicBorder>
+
+        <Grid RowDefinitions="Auto, *" Margin="20">
+            <TextBlock Grid.Row="0" Text="Settings" 
+                       FontSize="20" FontWeight="Bold" 
+                       HorizontalAlignment="Center" Margin="0,10,0,20"
+                       Foreground="White"/>
+
+            <StackPanel Grid.Row="1" Spacing="15">
+                <CheckBox Content="Enable Dependency Logs" 
+                          IsChecked="{Binding EnableDependencyLog}"
+                          Foreground="White"/>
+                
+                <TextBlock Text="Detailed logs from ffmpeg/yt-dlp checks will be shown in the main log window if enabled."
+                           TextWrapping="Wrap"
+                           FontSize="12"
+                           Foreground="#AAAAAA"/>
+            </StackPanel>
+        </Grid>
+    </Panel>
+</Window>

@@ -40,6 +40,10 @@ public partial class MainWindowViewModel : ViewModelBase
     public int WindowX { get; set; } = -1;
     public int WindowY { get; set; } = -1;
 
+    [ObservableProperty]
+    private bool _enableDependencyLog = true;
+
+
     public MainWindowViewModel()
     {
         _downloaderService = new DownloaderService();
@@ -47,7 +51,10 @@ public partial class MainWindowViewModel : ViewModelBase
         _downloaderService.ErrorReceived += OnErrorReceived;
         _downloaderService.ProgressChanged += OnProgressChanged;
         _downloaderService.EstimatedTimeRemainingChanged += OnEstimatedTimeRemainingChanged;
-        _downloaderService.DebugLogReceived += (s, msg) => AppendLog($"[Service] {msg}");
+        _downloaderService.DebugLogReceived += (s, msg) =>
+        {
+            if (EnableDependencyLog) AppendLog($"[Service] {msg}");
+        };
 
         // Load settings
         LoadSettings();
@@ -65,6 +72,7 @@ public partial class MainWindowViewModel : ViewModelBase
         WindowHeight = settings.WindowHeight;
         WindowX = settings.WindowX;
         WindowY = settings.WindowY;
+        EnableDependencyLog = settings.EnableDependencyLog;
     }
 
     public void SaveSettings()
@@ -76,7 +84,8 @@ public partial class MainWindowViewModel : ViewModelBase
             WindowWidth = WindowWidth,
             WindowHeight = WindowHeight,
             WindowX = WindowX,
-            WindowY = WindowY
+            WindowY = WindowY,
+            EnableDependencyLog = EnableDependencyLog
         };
         Services.SettingsManager.Save(settings);
     }
@@ -116,14 +125,23 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async void CheckDependencies()
     {
-        AppendLog("[CheckDependencies] Searching for yt-dlp...");
-        string ytDlpPath = DependencyUtils.GetExecutablePath("yt-dlp", msg => AppendLog(msg));
-        
-        AppendLog("[CheckDependencies] Searching for ffmpeg...");
-        string ffmpegPath = DependencyUtils.GetExecutablePath("ffmpeg", msg => AppendLog(msg));
-        
-        AppendLog("[CheckDependencies] Searching for node...");
-        string nodePath = DependencyUtils.GetExecutablePath("node", msg => AppendLog(msg));
+        if (EnableDependencyLog) AppendLog("[CheckDependencies] Searching for yt-dlp...");
+        string ytDlpPath = DependencyUtils.GetExecutablePath("yt-dlp", msg =>
+        {
+            if (EnableDependencyLog) AppendLog(msg);
+        });
+
+        if (EnableDependencyLog) AppendLog("[CheckDependencies] Searching for ffmpeg...");
+        string ffmpegPath = DependencyUtils.GetExecutablePath("ffmpeg", msg =>
+        {
+            if (EnableDependencyLog) AppendLog(msg);
+        });
+
+        if (EnableDependencyLog) AppendLog("[CheckDependencies] Searching for node...");
+        string nodePath = DependencyUtils.GetExecutablePath("node", msg =>
+        {
+            if (EnableDependencyLog) AppendLog(msg);
+        });
 
         bool ytDlp = await _downloaderService.IsYtDlpInstalledAsync();
         bool ffmpeg = await _downloaderService.IsFfmpegInstalledAsync();
@@ -232,4 +250,20 @@ public partial class MainWindowViewModel : ViewModelBase
 
         return $"{uri.Scheme}://{uri.Host}{uri.AbsolutePath}";
     }
+
+    [RelayCommand]
+    private void OpenSettings(Control? control)
+    {
+        if (control == null) return;
+        var topLevel = TopLevel.GetTopLevel(control) as Window;
+        if (topLevel == null) return;
+
+        var settingsWindow = new Views.SettingsWindow
+        {
+            DataContext = this
+        };
+        settingsWindow.ShowDialog(topLevel);
+    }
+
+    partial void OnEnableDependencyLogChanged(bool value) => SaveSettings();
 }
