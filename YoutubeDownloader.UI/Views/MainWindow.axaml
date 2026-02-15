@@ -12,6 +12,7 @@
         WindowStartupLocation="Manual"
         Width="{Binding WindowWidth, Mode=TwoWay}"
         Height="{Binding WindowHeight, Mode=TwoWay}"
+        Icon="/App.ico"
         ExtendClientAreaToDecorationsHint="True">
 
     <Design.DataContext>

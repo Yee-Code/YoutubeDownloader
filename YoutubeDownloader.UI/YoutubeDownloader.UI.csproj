@@ -5,7 +5,12 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>App.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="App.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.11" />
