@@ -78,4 +78,10 @@ dotnet run --project YoutubeDownloader.CLI/YoutubeDownloader.CLI.csproj
 
 - **Slow download speed?**
   - This may depend on YouTube server limits or your network conditions. The program uses `yt-dlp` default configurations.
+- **App is damaged and can't be opened? (macOS)**
+  - This is a common macOS security feature for apps not signed by an identified developer.
+  - To fix this, run the following command in Terminal:
+    ```bash
+    sudo xattr -rd com.apple.quarantine YoutubeDownloader.app
+    ```
 

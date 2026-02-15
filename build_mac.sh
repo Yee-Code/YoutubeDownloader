@@ -25,7 +25,8 @@ rm -rf YoutubeDownloader.UI/App.iconset
 
 # Publish the app
 echo "Publishing..."
-dotnet publish YoutubeDownloader.UI/YoutubeDownloader.UI.csproj -c Release -r osx-arm64 --self-contained true -o "$PUBLISH_DIR"
+rm -rf "$PUBLISH_DIR"
+dotnet publish YoutubeDownloader.UI/YoutubeDownloader.UI.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$PUBLISH_DIR"
 
 # Create .app bundle structure
 echo "Creating .app bundle..."

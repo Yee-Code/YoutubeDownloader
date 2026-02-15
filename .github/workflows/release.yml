@@ -12,10 +12,18 @@ permissions:
 jobs:
   build-and-release:
     name: Build for ${{ matrix.target }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        target: [win-x64, osx-x64, osx-arm64, linux-x64]
+        include:
+          - target: win-x64
+            os: windows-latest
+          - target: osx-x64
+            os: macos-latest
+          - target: osx-arm64
+            os: macos-latest
+          - target: linux-x64
+            os: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
@@ -25,12 +33,14 @@ jobs:
       with:
         dotnet-version: 10.0.x
 
-    - name: Publish
+    # --- Windows/Linux Build ---
+    - name: Publish (Windows/Linux)
+      if: matrix.os != 'macos-latest'
       run: |
-        dotnet publish YoutubeDownloader.UI/YoutubeDownloader.UI.csproj -c Release -r ${{ matrix.target }} --self-contained true -p:PublishSingleFile=true -o release/${{ matrix.target }}
+        dotnet publish YoutubeDownloader.UI/YoutubeDownloader.UI.csproj -c Release -r ${{ matrix.target }} --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o release/${{ matrix.target }}
 
-    - name: Rename executable (Linux/macOS)
-      if: matrix.target != 'win-x64'
+    - name: Rename executable (Linux)
+      if: matrix.target == 'linux-x64'
       run: |
         mv release/${{ matrix.target }}/YoutubeDownloader.UI release/${{ matrix.target }}/YoutubeDownloader
 
@@ -39,10 +49,88 @@ jobs:
       run: |
          mv release/${{ matrix.target }}/YoutubeDownloader.UI.exe release/${{ matrix.target }}/YoutubeDownloader.exe
 
-    - name: Zip Artifacts
+    - name: Zip Artifacts (Windows/Linux)
+      if: matrix.os != 'macos-latest'
       run: |
         cd release/${{ matrix.target }}
         zip -r ../../YoutubeDownloader-${{ matrix.target }}.zip .
+
+    # --- macOS Build ---
+    - name: Install Dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install ffmpeg
+
+    - name: Publish (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        dotnet publish YoutubeDownloader.UI/YoutubeDownloader.UI.csproj -c Release -r ${{ matrix.target }} --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o release/${{ matrix.target }}/publish
+
+    - name: Create App Bundle (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        APP_NAME="YoutubeDownloader"
+        APP_DIR="release/${{ matrix.target }}/$APP_NAME.app"
+        PUBLISH_DIR="release/${{ matrix.target }}/publish"
+        ICON_SOURCE="YoutubeDownloader.UI/App.ico"
+        ICON_ICNS="YoutubeDownloader.UI/App.icns"
+        
+        # Icon conversion
+        mkdir -p YoutubeDownloader.UI/App.iconset
+        ffmpeg -y -i "$ICON_SOURCE" YoutubeDownloader.UI/App.iconset/icon_256x256.png
+        sips -z 16 16     YoutubeDownloader.UI/App.iconset/icon_256x256.png --out YoutubeDownloader.UI/App.iconset/icon_16x16.png
+        sips -z 32 32     YoutubeDownloader.UI/App.iconset/icon_256x256.png --out YoutubeDownloader.UI/App.iconset/icon_16x16@2x.png
+        sips -z 32 32     YoutubeDownloader.UI/App.iconset/icon_256x256.png --out YoutubeDownloader.UI/App.iconset/icon_32x32.png
+        sips -z 64 64     YoutubeDownloader.UI/App.iconset/icon_256x256.png --out YoutubeDownloader.UI/App.iconset/icon_32x32@2x.png
+        sips -z 128 128   YoutubeDownloader.UI/App.iconset/icon_256x256.png --out YoutubeDownloader.UI/App.iconset/icon_128x128.png
+        sips -z 256 256   YoutubeDownloader.UI/App.iconset/icon_256x256.png --out YoutubeDownloader.UI/App.iconset/icon_128x128@2x.png
+        sips -z 256 256   YoutubeDownloader.UI/App.iconset/icon_256x256.png --out YoutubeDownloader.UI/App.iconset/icon_256x256.png
+        sips -z 512 512   YoutubeDownloader.UI/App.iconset/icon_256x256.png --out YoutubeDownloader.UI/App.iconset/icon_256x256@2x.png
+        sips -z 512 512   YoutubeDownloader.UI/App.iconset/icon_256x256.png --out YoutubeDownloader.UI/App.iconset/icon_512x512.png
+        sips -z 1024 1024 YoutubeDownloader.UI/App.iconset/icon_256x256.png --out YoutubeDownloader.UI/App.iconset/icon_512x512@2x.png
+        iconutil -c icns YoutubeDownloader.UI/App.iconset -o "$ICON_ICNS"
+        
+        # Create Structure
+        mkdir -p "$APP_DIR/Contents/MacOS"
+        mkdir -p "$APP_DIR/Contents/Resources"
+        
+        # Copy files
+        cp -a "$PUBLISH_DIR/." "$APP_DIR/Contents/MacOS/"
+        cp "$ICON_ICNS" "$APP_DIR/Contents/Resources/App.icns"
+        
+        # Create Info.plist
+        cat > "$APP_DIR/Contents/Info.plist" <<EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleName</key>
+            <string>$APP_NAME</string>
+            <key>CFBundleDisplayName</key>
+            <string>$APP_NAME</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.leeyu.$APP_NAME</string>
+            <key>CFBundleVersion</key>
+            <string>1.0.0</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleSignature</key>
+            <string>????</string>
+            <key>CFBundleExecutable</key>
+            <string>YoutubeDownloader.UI</string>
+            <key>CFBundleIconFile</key>
+            <string>App</string>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+        </dict>
+        </plist>
+        EOF
+
+    - name: Zip Artifacts (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        cd release/${{ matrix.target }}
+        zip -r ../../YoutubeDownloader-${{ matrix.target }}.zip YoutubeDownloader.app
 
     - name: Release
       uses: softprops/action-gh-release@v1
