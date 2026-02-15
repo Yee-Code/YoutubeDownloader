@@ -34,6 +34,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _estimatedTimeRemaining = "Estimating...";
 
     // Window properties for persistence
+    public string WindowTitle { get; } = $"YouTube Downloader v{System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0"}";
     public double WindowWidth { get; set; } = 800;
     public double WindowHeight { get; set; } = 450;
     public int WindowX { get; set; } = -1;
@@ -46,6 +47,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _downloaderService.ErrorReceived += OnErrorReceived;
         _downloaderService.ProgressChanged += OnProgressChanged;
         _downloaderService.EstimatedTimeRemainingChanged += OnEstimatedTimeRemainingChanged;
+        _downloaderService.DebugLogReceived += (s, msg) => AppendLog($"[Service] {msg}");
 
         // Load settings
         LoadSettings();
@@ -114,6 +116,15 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async void CheckDependencies()
     {
+        AppendLog("[CheckDependencies] Searching for yt-dlp...");
+        string ytDlpPath = DependencyUtils.GetExecutablePath("yt-dlp", msg => AppendLog(msg));
+        
+        AppendLog("[CheckDependencies] Searching for ffmpeg...");
+        string ffmpegPath = DependencyUtils.GetExecutablePath("ffmpeg", msg => AppendLog(msg));
+        
+        AppendLog("[CheckDependencies] Searching for node...");
+        string nodePath = DependencyUtils.GetExecutablePath("node", msg => AppendLog(msg));
+
         bool ytDlp = await _downloaderService.IsYtDlpInstalledAsync();
         bool ffmpeg = await _downloaderService.IsFfmpegInstalledAsync();
         bool node = await _downloaderService.IsNodeInstalledAsync();

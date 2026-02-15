@@ -14,22 +14,23 @@ namespace YoutubeDownloader.Core
         public event EventHandler<string>? OutputReceived;
         public event EventHandler<string>? ErrorReceived;
         public event EventHandler<TimeSpan?>? EstimatedTimeRemainingChanged;
+        public event EventHandler<string>? DebugLogReceived;
 
         public async Task<bool> IsYtDlpInstalledAsync()
         {
-            var toolName = DependencyUtils.GetExecutablePath("yt-dlp");
+            var toolName = DependencyUtils.GetExecutablePath("yt-dlp", msg => DebugLogReceived?.Invoke(this, msg));
             return await CheckToolInstallationAsync(toolName, "--version");
         }
 
         public async Task<bool> IsFfmpegInstalledAsync()
         {
-            var toolName = DependencyUtils.GetExecutablePath("ffmpeg");
+            var toolName = DependencyUtils.GetExecutablePath("ffmpeg", msg => DebugLogReceived?.Invoke(this, msg));
             return await CheckToolInstallationAsync(toolName, "-version");
         }
 
         public async Task<bool> IsNodeInstalledAsync()
         {
-            var toolName = DependencyUtils.GetExecutablePath("node");
+            var toolName = DependencyUtils.GetExecutablePath("node", msg => DebugLogReceived?.Invoke(this, msg));
             return await CheckToolInstallationAsync(toolName, "--version");
         }
 
