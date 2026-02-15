@@ -5,6 +5,7 @@ PUBLISH_DIR="bin/Release/net10.0/osx-arm64/publish"
 APP_DIR="$APP_NAME.app"
 ICON_SOURCE="YoutubeDownloader.UI/App.ico"
 ICON_ICNS="YoutubeDownloader.UI/App.icns"
+VERSION=$(cat VERSION)
 
 # Convert ico to temporary pngs and then to icns using iconutil
 mkdir -p YoutubeDownloader.UI/App.iconset
@@ -22,6 +23,10 @@ sips -z 1024 1024 YoutubeDownloader.UI/App.iconset/icon_256x256.png --out Youtub
 
 iconutil -c icns YoutubeDownloader.UI/App.iconset -o "$ICON_ICNS"
 rm -rf YoutubeDownloader.UI/App.iconset
+
+# Update app.manifest version
+echo "Updating app.manifest version to $VERSION..."
+sed -i '' "s/assemblyIdentity version=\"[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\"/assemblyIdentity version=\"${VERSION}.0\"/" YoutubeDownloader.UI/app.manifest
 
 # Publish the app
 echo "Publishing..."
@@ -54,7 +59,7 @@ cat > "$APP_DIR/Contents/Info.plist" <<EOF
     <key>CFBundleIdentifier</key>
     <string>com.leeyu.$APP_NAME</string>
     <key>CFBundleVersion</key>
-    <string>1.0.0</string>
+    <string>$VERSION</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleSignature</key>
