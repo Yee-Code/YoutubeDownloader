@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <AvaloniaResource Include="App.ico" />
+    <AvaloniaResource Include="Resources/**" />
   </ItemGroup>
 
   <ItemGroup>

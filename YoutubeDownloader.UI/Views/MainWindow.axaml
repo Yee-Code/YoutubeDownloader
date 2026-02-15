@@ -65,7 +65,11 @@
                          IsEnabled="{Binding !IsDownloading}"
                          Classes="clearButton"
                          Height="40"
-                         VerticalContentAlignment="Center"/>
+                         VerticalContentAlignment="Center">
+                    <TextBox.KeyBindings>
+                        <KeyBinding Gesture="Enter" Command="{Binding DownloadCommand}"/>
+                    </TextBox.KeyBindings>
+                </TextBox>
                 
                 <Grid ColumnDefinitions="*, Auto" Margin="0,5">
                     <TextBox Grid.Column="0" Watermark="Output Path (Default: Downloads)" 
@@ -117,7 +121,7 @@
                     Padding="10">
                 <ScrollViewer>
                     <SelectableTextBlock Text="{Binding LogOutput}" 
-                                         FontFamily="Consolas, monospace"
+                                         FontFamily="avares://YoutubeDownloader.UI/Resources/Fonts#JetBrains Mono"
                                          Foreground="#AAAAAA"
                                          TextWrapping="Wrap"/>
                 </ScrollViewer>
