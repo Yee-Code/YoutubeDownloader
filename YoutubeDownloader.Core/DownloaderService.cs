@@ -17,12 +17,20 @@ namespace YoutubeDownloader.Core
 
         public async Task<bool> IsYtDlpInstalledAsync()
         {
-            return await CheckToolInstallationAsync("yt-dlp", "--version");
+            var toolName = DependencyUtils.GetExecutablePath("yt-dlp");
+            return await CheckToolInstallationAsync(toolName, "--version");
         }
 
         public async Task<bool> IsFfmpegInstalledAsync()
         {
-            return await CheckToolInstallationAsync("ffmpeg", "-version");
+            var toolName = DependencyUtils.GetExecutablePath("ffmpeg");
+            return await CheckToolInstallationAsync(toolName, "-version");
+        }
+
+        public async Task<bool> IsNodeInstalledAsync()
+        {
+            var toolName = DependencyUtils.GetExecutablePath("node");
+            return await CheckToolInstallationAsync(toolName, "--version");
         }
 
         private async Task<bool> CheckToolInstallationAsync(string toolName, string arguments)
@@ -66,12 +74,14 @@ namespace YoutubeDownloader.Core
 
             if (!string.IsNullOrWhiteSpace(outputDirectory))
             {
+                // Fix: Trim trailing backslash to prevent escaping the closing quote
+                outputDirectory = outputDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 arguments = $"-P \"{outputDirectory}\" " + arguments;
             }
 
             var processStartInfo = new ProcessStartInfo
             {
-                FileName = "yt-dlp",
+                FileName = DependencyUtils.GetExecutablePath("yt-dlp"),
                 Arguments = arguments,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,

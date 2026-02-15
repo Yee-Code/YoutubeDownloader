@@ -116,6 +116,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         bool ytDlp = await _downloaderService.IsYtDlpInstalledAsync();
         bool ffmpeg = await _downloaderService.IsFfmpegInstalledAsync();
+        bool node = await _downloaderService.IsNodeInstalledAsync();
 
         if (!ytDlp)
         {
@@ -125,9 +126,15 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             AppendLog("Warning: 'ffmpeg' is not found. Merging might fail.");
         }
+        if (!node)
+        {
+            AppendLog("Warning: 'Node.js' is not found. Some videos might fail to download or be throttled.");
+            AppendLog("Please install Node.js from https://nodejs.org/");
+        }
 
         if (ytDlp) AppendLog("yt-dlp detected.");
         if (ffmpeg) AppendLog("ffmpeg detected.");
+        if (node) AppendLog("Node.js detected.");
     }
 
     private void OnOutputReceived(object? sender, string e)

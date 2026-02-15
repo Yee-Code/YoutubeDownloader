@@ -50,6 +50,13 @@ public static class CliRunner
             Console.WriteLine("Warning: 'ffmpeg' is not found. High quality video/audio merging might fail.");
         }
 
+        // Check if Node.js is installed
+        if (!await downloader.IsNodeInstalledAsync())
+        {
+            Console.WriteLine("Warning: 'Node.js' is not found. Some videos might fail to download.");
+            Console.WriteLine("Please install Node.js from https://nodejs.org/");
+        }
+
         // Subscribe to events
         downloader.OutputReceived += (sender, data) => Console.WriteLine(data);
         downloader.ErrorReceived += (sender, data) => Console.WriteLine($"[Error/Info] {data}");
