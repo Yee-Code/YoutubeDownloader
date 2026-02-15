@@ -49,11 +49,16 @@ jobs:
       run: |
          mv release/${{ matrix.target }}/YoutubeDownloader.UI.exe release/${{ matrix.target }}/YoutubeDownloader.exe
 
-    - name: Zip Artifacts (Windows/Linux)
-      if: matrix.os != 'macos-latest'
+    - name: Zip Artifacts (Linux)
+      if: matrix.os == 'ubuntu-latest'
       run: |
         cd release/${{ matrix.target }}
         zip -r ../../YoutubeDownloader-${{ matrix.target }}.zip .
+
+    - name: Zip Artifacts (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        Compress-Archive -Path release/${{ matrix.target }}/* -DestinationPath YoutubeDownloader-${{ matrix.target }}.zip
 
     # --- macOS Build ---
     - name: Install Dependencies (macOS)
