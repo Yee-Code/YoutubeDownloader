@@ -1,8 +1,20 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="YoutubeDownloader.UI.App"
+             Name="YouTube Downloader"
              RequestedThemeVariant="Dark">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <NativeMenu.Menu>
+        <NativeMenu>
+            
+            <NativeMenuItem Header="About YouTube Downloader"
+                    Click="OnAboutClicked"/>
+            <NativeMenuItem Header="Preferences..."
+                    Gesture="Cmd+,"
+                    Click="OnPreferencesClicked"/>
+        </NativeMenu>
+    </NativeMenu.Menu>
 
     <Application.Styles>
         <FluentTheme />

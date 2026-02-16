@@ -8,6 +8,53 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+    }
+
+    private void OnDataContextChanged(object? sender, System.EventArgs e)
+    {
+        if (DataContext is MainWindowViewModel vm)
+        {
+            vm.LogMessages.CollectionChanged += OnLogMessagesChanged;
+            // Initialize existing logs if any
+            RebuildLogs(vm.LogMessages);
+        }
+    }
+
+    private void OnLogMessagesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+        {
+            LogTextBlock.Inlines!.Clear();
+        }
+        else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && e.NewItems != null)
+        {
+            foreach (Models.LogMessage msg in e.NewItems)
+            {
+                AddLogMessage(msg);
+            }
+            // Auto scroll
+            LogScrollViewer.ScrollToEnd();
+        }
+    }
+
+    private void RebuildLogs(System.Collections.Generic.IEnumerable<Models.LogMessage> messages)
+    {
+        LogTextBlock.Inlines!.Clear();
+        foreach (var msg in messages)
+        {
+            AddLogMessage(msg);
+        }
+        LogScrollViewer.ScrollToEnd();
+    }
+
+    private void AddLogMessage(Models.LogMessage msg)
+    {
+        var run = new Avalonia.Controls.Documents.Run(msg.Text + System.Environment.NewLine)
+        {
+            Foreground = msg.Color
+        };
+        LogTextBlock.Inlines!.Add(run);
     }
 
     protected override void OnOpened(System.EventArgs e)
@@ -37,5 +84,10 @@ public partial class MainWindow : Window
 
             vm.SaveSettings();
         }
+    }
+
+    private void OnCloseClicked(object? sender, System.EventArgs e)
+    {
+        Close();
     }
 }

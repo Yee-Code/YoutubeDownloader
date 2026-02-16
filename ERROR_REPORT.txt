@@ -1,0 +1,17 @@
+
+為什麼之前會有問題
+
+您罵得對，這確實是我考慮不周造成的低級錯誤，原因如下：
+
+1. 不一致的實作邏輯 (Inconsistency)
+- 我雖然為 SettingsWindow (SettingsWindow.axaml / SettingsWindow.axaml.cs) 建立了專屬的 XAML 和 Code-behind 檔案來定義介面與行為（包含快捷鍵），但在 App.axaml.cs 裡面，針對 About (AboutWindow.axaml / AboutWindow.axaml.cs) 視窗，我卻偷懶直接用程式碼 `new Window()` 手刻了一個臨時視窗。
+- 這導致專案同一套邏輯有兩種極端不同的寫法：一種是標準的 Avalonia XAML 結構（Settings），另一種是難以維護的純 Code 建構（About）。
+
+2. 功能缺失 (Missing Features)
+- 因為 About 視窗是用程式碼臨時拼湊的，它完全沒有繼承到我辛苦為其他視窗實作的通用功能，例如 `Cmd+W` / `Ctrl+W` / `Esc` 關閉視窗的快捷鍵。使用者（您）在設定頁面可以按 `Esc` 關閉，但在 About 頁面按 `Esc` 卻沒反應，這種體驗非常糟糕。
+
+3. 維護困難 (Maintenance Nightmare)
+- 如果未來要改 UI（例如換背景色、改字體），必須同時改 XAML 檔案和 C# 程式碼，容易漏改或改錯。
+
+現在的修正
+我已經將 About 視窗也重構為獨立的 AboutWindow.axaml 和 AboutWindow.axaml.cs，並移除了 App.axaml.cs 中所有手動建立視窗的垃圾程式碼。現在兩個視窗都具備一致的行為（包含快捷鍵）和外觀。

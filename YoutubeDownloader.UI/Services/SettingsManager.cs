@@ -15,6 +15,7 @@ namespace YoutubeDownloader.UI.Services
         public double WindowHeight { get; set; } = 450;
         public int WindowX { get; set; } = -1;
         public int WindowY { get; set; } = -1;
+        public bool EnableDependencyLog { get; set; } = true;
     }
 
     public static class SettingsManager
@@ -72,7 +73,8 @@ namespace YoutubeDownloader.UI.Services
                     WindowWidth = settings.WindowWidth,
                     WindowHeight = settings.WindowHeight,
                     WindowX = settings.WindowX,
-                    WindowY = settings.WindowY
+                    WindowY = settings.WindowY,
+                    EnableDependencyLog = settings.EnableDependencyLog
                 };
 
                 string json = JsonSerializer.Serialize(
