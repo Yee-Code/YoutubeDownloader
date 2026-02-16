@@ -67,7 +67,23 @@ dotnet test YoutubeDownloader.sln --nologo
 ```
 
 ## Troubleshooting
+- **Error: `yt-dlp` not found**
+  - Ensure `yt-dlp` is installed and you can run `yt-dlp --version` in the terminal.
+  - Make sure its directory is added to the system's PATH environment variable.
 
-- `yt-dlp` not found: verify `yt-dlp --version` works in terminal.
-- video/audio merge failed: check `ffmpeg` installation.
-- some videos fail/throttle: install Node.js.
+- **Video has only audio or only video?**
+  - This is usually due to missing `ffmpeg`. `yt-dlp` requires `ffmpeg` to merge high-quality video and audio streams. Please install `ffmpeg` to resolve this.
+
+- **Some videos fail/throttle**
+  - Try to install Node.js.
+
+- **Slow download speed?**
+  - This may depend on YouTube server limits or your network conditions. The program uses `yt-dlp` default configurations.
+
+- **App is damaged and can't be opened? (macOS)**
+  - This is a common macOS security feature for apps not signed by an identified developer.
+  - To fix this, run the following command in Terminal:
+    ```bash
+    sudo xattr -rd com.apple.quarantine /Applications/YoutubeDownloader.app
+    ```
+
