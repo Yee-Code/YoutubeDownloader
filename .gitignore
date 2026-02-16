@@ -3,3 +3,5 @@
 **/*.mp4
 **/*.app
 **/*.icns
+.idea
+*.sln.DotSettings.user
