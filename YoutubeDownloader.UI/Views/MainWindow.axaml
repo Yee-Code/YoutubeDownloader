@@ -34,6 +34,11 @@
                     <NativeMenuItem Header="Close" Gesture="Cmd+W" Click="OnCloseClicked"/>
                 </NativeMenu>
             </NativeMenuItem>
+            <NativeMenuItem Header="Help">
+                <NativeMenu>
+                    <NativeMenuItem Header="About" Click="OnAboutMenuClick"/>
+                </NativeMenu>
+            </NativeMenuItem>
 
         </NativeMenu>
     </NativeMenu.Menu>
@@ -51,12 +56,20 @@
 
         <Grid RowDefinitions="Auto, Auto, Auto, *, Auto" Margin="20">
             <!-- Header -->
-            <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,30,0,20">
+            <Grid Grid.Row="0" ColumnDefinitions="*, Auto, Auto" Margin="0,30,0,20">
                 <TextBlock Grid.Column="0" Text="YouTube Downloader" 
                            FontSize="24" FontWeight="Bold" 
                            HorizontalAlignment="Center"
                            Foreground="White"/>
-                <Button Grid.Column="1" Command="{Binding OpenSettingsCommand}"
+                
+                <Button Grid.Column="1" Click="OnAboutButtonClick"
+                        Background="Transparent" BorderThickness="0"
+                        ToolTip.Tip="About" Margin="0,0,5,0">
+                     <PathIcon Data="M12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2M13,17H11V11H13V17M13,9H11V7H13V9Z"
+                               Foreground="White" Width="20" Height="20"/>
+                </Button>
+
+                <Button Grid.Column="2" Command="{Binding OpenSettingsCommand}"
                         CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
                         Background="Transparent" BorderThickness="0"
                         ToolTip.Tip="Settings">

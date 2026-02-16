@@ -90,4 +90,20 @@ public partial class MainWindow : Window
     {
         Close();
     }
+
+    private void OnAboutButtonClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        ShowAboutWindow();
+    }
+
+    private void OnAboutMenuClick(object? sender, System.EventArgs e)
+    {
+        ShowAboutWindow();
+    }
+
+    private void ShowAboutWindow()
+    {
+        var aboutWindow = new AboutWindow();
+        aboutWindow.ShowDialog(this);
+    }
 }
