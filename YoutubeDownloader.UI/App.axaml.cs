@@ -3,15 +3,16 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Avalonia.Media;
+using YoutubeDownloader.UI.Services;
 using YoutubeDownloader.UI.ViewModels;
 using YoutubeDownloader.UI.Views;
-using YoutubeDownloader.Core.Utils;
 
 namespace YoutubeDownloader.UI;
 
 public partial class App : Application
 {
+    private readonly AppBootstrapper _bootstrapper = new();
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -23,7 +24,7 @@ public partial class App : Application
         {
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainWindowViewModel()
+                DataContext = _bootstrapper.CreateMainWindowViewModel()
             };
         }
 
@@ -32,17 +33,14 @@ public partial class App : Application
 
     private void OnPreferencesClicked(object? sender, EventArgs e)
     {
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
-            && desktop.MainWindow is MainWindow mainWindow)
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
+            desktop.MainWindow is MainWindow mainWindow)
         {
-            if (mainWindow.DataContext is MainWindowViewModel viewModel)
-            {
-                OpenSettingsWindow(mainWindow);
-            }
+            OpenSettingsWindow(mainWindow);
         }
     }
 
-    private void OpenSettingsWindow(Window owner)
+    private static void OpenSettingsWindow(Window owner)
     {
         if (owner.DataContext is MainWindowViewModel viewModel)
         {
@@ -53,16 +51,17 @@ public partial class App : Application
             settingsWindow.ShowDialog(owner);
         }
     }
+
     private void OnAboutClicked(object? sender, EventArgs e)
     {
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
-            && desktop.MainWindow is MainWindow mainWindow)
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
+            desktop.MainWindow is MainWindow mainWindow)
         {
             OpenAboutWindow(mainWindow);
         }
     }
 
-    private void OpenAboutWindow(Window owner)
+    private static void OpenAboutWindow(Window owner)
     {
         var aboutWindow = new AboutWindow();
         aboutWindow.ShowDialog(owner);

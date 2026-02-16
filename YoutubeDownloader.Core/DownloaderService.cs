@@ -1,163 +1,67 @@
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using YoutubeDownloader.Core.Abstractions;
+using YoutubeDownloader.Core.Composition;
+using YoutubeDownloader.Core.Models;
 
-namespace YoutubeDownloader.Core
+namespace YoutubeDownloader.Core;
+
+public class DownloaderService
 {
-    public class DownloaderService
+    private readonly IDependencyService _dependencyService;
+    private readonly IDownloadClient _downloadClient;
+
+    public event EventHandler<string>? OutputReceived;
+    public event EventHandler<string>? ErrorReceived;
+    public event EventHandler<TimeSpan?>? EstimatedTimeRemainingChanged;
+    public event EventHandler<string>? DebugLogReceived;
+    public event EventHandler<double>? ProgressChanged;
+
+    public DownloaderService()
+        : this(CoreServiceFactory.CreateDependencyService(), CoreServiceFactory.CreateDownloadClient())
     {
-        private static readonly Regex ProgressRegex = new(@"\[download\]\s+(\d+\.?\d*)%", RegexOptions.Compiled);
-        private static readonly Regex EtaRegex = new(@"ETA\s+((?:\d{1,2}:)?\d{1,2}:\d{2})", RegexOptions.Compiled);
+    }
 
-        public event EventHandler<string>? OutputReceived;
-        public event EventHandler<string>? ErrorReceived;
-        public event EventHandler<TimeSpan?>? EstimatedTimeRemainingChanged;
-        public event EventHandler<string>? DebugLogReceived;
+    public DownloaderService(IDependencyService dependencyService, IDownloadClient downloadClient)
+    {
+        _dependencyService = dependencyService;
+        _downloadClient = downloadClient;
+    }
 
-        public async Task<bool> IsYtDlpInstalledAsync()
+    public async Task<bool> IsYtDlpInstalledAsync()
+    {
+        var results = await _dependencyService.CheckAsync().ConfigureAwait(false);
+        return results.FirstOrDefault(x => x.Type == DependencyType.YtDlp)?.IsInstalled == true;
+    }
+
+    public async Task<bool> IsFfmpegInstalledAsync()
+    {
+        var results = await _dependencyService.CheckAsync().ConfigureAwait(false);
+        return results.FirstOrDefault(x => x.Type == DependencyType.Ffmpeg)?.IsInstalled == true;
+    }
+
+    public async Task<bool> IsNodeInstalledAsync()
+    {
+        var results = await _dependencyService.CheckAsync().ConfigureAwait(false);
+        return results.FirstOrDefault(x => x.Type == DependencyType.Node)?.IsInstalled == true;
+    }
+
+    public async Task<int> DownloadVideoAsync(string videoUrl, string? outputDirectory = null)
+    {
+        var result = await _downloadClient.DownloadAsync(
+            new DownloadRequest(videoUrl, outputDirectory),
+            onOutput: line => OutputReceived?.Invoke(this, line),
+            onError: line => ErrorReceived?.Invoke(this, line),
+            onProgress: progress =>
+            {
+                ProgressChanged?.Invoke(this, progress.Percentage);
+                EstimatedTimeRemainingChanged?.Invoke(this, progress.EstimatedTimeRemaining);
+            },
+            onDebug: message => DebugLogReceived?.Invoke(this, message)).ConfigureAwait(false);
+
+        if (result.IsSuccess)
         {
-            var toolName = DependencyUtils.GetExecutablePath("yt-dlp", msg => DebugLogReceived?.Invoke(this, msg));
-            return await CheckToolInstallationAsync(toolName, "--version");
+            EstimatedTimeRemainingChanged?.Invoke(this, null);
         }
 
-        public async Task<bool> IsFfmpegInstalledAsync()
-        {
-            var toolName = DependencyUtils.GetExecutablePath("ffmpeg", msg => DebugLogReceived?.Invoke(this, msg));
-            return await CheckToolInstallationAsync(toolName, "-version");
-        }
-
-        public async Task<bool> IsNodeInstalledAsync()
-        {
-            var toolName = DependencyUtils.GetExecutablePath("node", msg => DebugLogReceived?.Invoke(this, msg));
-            return await CheckToolInstallationAsync(toolName, "--version");
-        }
-
-        private async Task<bool> CheckToolInstallationAsync(string toolName, string arguments)
-        {
-            try
-            {
-                var processStartInfo = new ProcessStartInfo
-                {
-                    FileName = toolName,
-                    Arguments = arguments,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using (var process = new Process { StartInfo = processStartInfo })
-                {
-                    process.Start();
-                    await process.WaitForExitAsync();
-                    return process.ExitCode == 0;
-                }
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        public event EventHandler<double>? ProgressChanged;
-
-        public async Task<int> DownloadVideoAsync(string videoUrl, string? outputDirectory = null)
-        {
-            // Resolve ffmpeg path explicitly
-            string ffmpegPath = DependencyUtils.GetExecutablePath("ffmpeg");
-            string ffmpegDir = Path.GetDirectoryName(ffmpegPath) ?? string.Empty;
-
-            // Construct arguments for yt-dlp
-            // -f "bestvideo+bestaudio/best" : Download best video and best audio and merge them. Fallback to best single file.
-            // --merge-output-format mp4 : Ensure output is mp4
-            // -o "%(title)s.%(ext)s" : Output filename format
-            // --newline: Output progress on new lines for easier parsing
-            // --ffmpeg-location: Explicitly tell yt-dlp where ffmpeg is
-            string outputTemplate = "%(title)s.%(ext)s";
-            string arguments = $"-f \"bestvideo+bestaudio/best\" --merge-output-format mp4 --ffmpeg-location \"{ffmpegPath}\" -o \"{outputTemplate}\" --newline \"{videoUrl}\"";
-
-            if (!string.IsNullOrWhiteSpace(outputDirectory))
-            {
-                // Fix: Trim trailing backslash to prevent escaping the closing quote
-                outputDirectory = outputDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                arguments = $"-P \"{outputDirectory}\" " + arguments;
-            }
-
-            var processStartInfo = new ProcessStartInfo
-            {
-                FileName = DependencyUtils.GetExecutablePath("yt-dlp"),
-                Arguments = arguments,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            // Vital: Add common paths to PATH environment variable for the child process
-            // This ensures node, ffmpeg, and other tools can be found even if not bundling
-            if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX))
-            {
-                string pathEnv = processStartInfo.EnvironmentVariables["PATH"] ?? string.Empty;
-                string newPath = $"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:{pathEnv}";
-                // Also add the directory where ffmpeg was found
-                if (!string.IsNullOrEmpty(ffmpegDir) && !newPath.Contains(ffmpegDir))
-                {
-                    newPath = $"{ffmpegDir}:{newPath}";
-                }
-                processStartInfo.EnvironmentVariables["PATH"] = newPath;
-            }
-
-            using (var process = new Process())
-            {
-                process.StartInfo = processStartInfo;
-                process.OutputDataReceived += (sender, e) =>
-                {
-                    if (e.Data != null)
-                    {
-                        // Parse progress
-                        var match = ProgressRegex.Match(e.Data);
-                        if (match.Success && double.TryParse(match.Groups[1].Value, out double progress))
-                        {
-                            ProgressChanged?.Invoke(this, progress);
-
-                            TimeSpan? eta = TryParseEta(e.Data);
-                            EstimatedTimeRemainingChanged?.Invoke(this, eta);
-                        }
-                        else
-                        {
-                            OutputReceived?.Invoke(this, e.Data);
-                        }
-                    }
-                };
-                process.ErrorDataReceived += (sender, e) => { if (e.Data != null) ErrorReceived?.Invoke(this, e.Data); };
-
-                process.Start();
-                process.BeginOutputReadLine();
-                process.BeginErrorReadLine();
-
-                await process.WaitForExitAsync();
-                EstimatedTimeRemainingChanged?.Invoke(this, null);
-
-                return process.ExitCode;
-            }
-        }
-
-        private static TimeSpan? TryParseEta(string outputLine)
-        {
-            var match = EtaRegex.Match(outputLine);
-            if (!match.Success)
-            {
-                return null;
-            }
-
-            if (TimeSpan.TryParse(match.Groups[1].Value, out var eta))
-            {
-                return eta;
-            }
-
-            return null;
-        }
+        return result.ExitCode;
     }
 }

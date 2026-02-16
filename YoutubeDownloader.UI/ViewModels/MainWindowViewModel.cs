@@ -1,19 +1,21 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using YoutubeDownloader.Core;
-using Avalonia.Controls;
-using System.Linq;
-using Avalonia.Platform.Storage;
-using System.Runtime.InteropServices;
+using YoutubeDownloader.Core.Abstractions;
+using YoutubeDownloader.Core.Models;
+using YoutubeDownloader.Core.Services;
 using YoutubeDownloader.Core.Utils;
 
 namespace YoutubeDownloader.UI.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    private readonly DownloaderService _downloaderService;
+    private readonly IDependencyService _dependencyService;
+    private readonly IDownloadClient _downloadClient;
 
     [ObservableProperty]
     private string _videoUrl = string.Empty;
@@ -36,7 +38,6 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string _estimatedTimeRemaining = "Estimating...";
 
-    // Window properties for persistence
     public string WindowTitle { get; } = $"YouTube Downloader v{AppInfo.GetVersion()}";
 
     [ObservableProperty]
@@ -54,24 +55,23 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool _enableDependencyLog = true;
 
-
     public MainWindowViewModel()
+        : this(CreateDefaultServices())
     {
-        _downloaderService = new DownloaderService();
-        _downloaderService.OutputReceived += OnOutputReceived;
-        _downloaderService.ErrorReceived += OnErrorReceived;
-        _downloaderService.ProgressChanged += OnProgressChanged;
-        _downloaderService.EstimatedTimeRemainingChanged += OnEstimatedTimeRemainingChanged;
-        _downloaderService.DebugLogReceived += (s, msg) =>
-        {
-            if (EnableDependencyLog) AppendLog($"[Service] {msg}");
-        };
+    }
 
-        // Load settings
+    private MainWindowViewModel((IDependencyService DependencyService, IDownloadClient DownloadClient) services)
+        : this(services.DependencyService, services.DownloadClient)
+    {
+    }
+
+    public MainWindowViewModel(IDependencyService dependencyService, IDownloadClient downloadClient)
+    {
+        _dependencyService = dependencyService;
+        _downloadClient = downloadClient;
+
         LoadSettings();
-
-        // Initial check
-        CheckDependencies();
+        _ = CheckDependenciesAsync();
     }
 
     private void LoadSettings()
@@ -98,16 +98,23 @@ public partial class MainWindowViewModel : ViewModelBase
             WindowY = WindowY,
             EnableDependencyLog = EnableDependencyLog
         };
+
         Services.SettingsManager.Save(settings);
     }
 
     [RelayCommand]
     private async Task BrowseAsync(Control? control)
     {
-        if (control == null) return;
+        if (control == null)
+        {
+            return;
+        }
 
         var topLevel = TopLevel.GetTopLevel(control);
-        if (topLevel == null) return;
+        if (topLevel == null)
+        {
+            return;
+        }
 
         var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
@@ -118,81 +125,35 @@ public partial class MainWindowViewModel : ViewModelBase
         if (folders.Count > 0)
         {
             DownloadPath = folders[0].Path.LocalPath;
-            SaveSettings(); // Auto-save on change
+            SaveSettings();
         }
     }
 
-    private void OnProgressChanged(object? sender, double e)
+    private async Task CheckDependenciesAsync()
     {
-        ProgressValue = e;
-    }
-
-    private void OnEstimatedTimeRemainingChanged(object? sender, TimeSpan? eta)
-    {
-        EstimatedTimeRemaining = eta.HasValue
-            ? $"Estimated remaining: {eta.Value:hh\\:mm\\:ss}"
-            : "Estimating...";
-    }
-
-    private async void CheckDependencies()
-    {
-        if (EnableDependencyLog) AppendLog("[CheckDependencies] Starting dependency checks...");
-
-        var ytDlpTask = Task.Run(() => _downloaderService.IsYtDlpInstalledAsync());
-        var ffmpegTask = Task.Run(() => _downloaderService.IsFfmpegInstalledAsync());
-        var nodeTask = Task.Run(() => _downloaderService.IsNodeInstalledAsync());
-
-        await Task.WhenAll(ytDlpTask, ffmpegTask, nodeTask);
-
-        bool ytDlp = await ytDlpTask;
-        bool ffmpeg = await ffmpegTask;
-        bool node = await nodeTask;
-
-        if (ytDlp) AppendLog("yt-dlp detected.");
-        else
+        if (EnableDependencyLog)
         {
-            AppendLog("Error: 'yt-dlp' is not found.");
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                AppendLog("Please install it via Winget: winget install yt-dlp");
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                AppendLog("Please install it via Homebrew: brew install yt-dlp");
-            else
-                AppendLog("Please install it via your package manager.");
+            AppendLog("[DependencyCheck] Starting checks...");
         }
 
-        if (ffmpeg) AppendLog("ffmpeg detected.");
-        else
+        var dependencies = await _dependencyService.CheckAsync().ConfigureAwait(false);
+
+        foreach (var dependency in dependencies)
         {
-            AppendLog("Warning: 'ffmpeg' is not found. Merging might fail.");
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                AppendLog("Please install it via Winget: winget install Gyan.FFmpeg");
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                AppendLog("Please install it via Homebrew: brew install ffmpeg");
-            else
-                AppendLog("Please install it via your package manager.");
+            if (dependency.IsInstalled)
+            {
+                AppendLog($"{dependency.ExecutableName} detected.");
+                continue;
+            }
+
+            var severityPrefix = dependency.Type == DependencyType.YtDlp ? "Error" : "Warning";
+            AppendLog($"{severityPrefix}: '{dependency.ExecutableName}' is not found.");
+
+            foreach (var hint in DependencyGuidance.GetInstallHints(dependency.Type))
+            {
+                AppendLog(hint);
+            }
         }
-
-        if (node) AppendLog("Node.js detected.");
-        else
-        {
-            AppendLog("Warning: 'Node.js' is not found. Some videos might fail to download or be throttled.");
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                AppendLog("Please install it via Winget: winget install OpenJS.NodeJS");
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                AppendLog("Please install it via Homebrew: brew install node");
-            else
-                AppendLog("Please install it via your package manager.");
-        }
-    }
-
-    private void OnOutputReceived(object? sender, string e)
-    {
-        AppendLog(e);
-    }
-
-    private void OnErrorReceived(object? sender, string e)
-    {
-        AppendLog($"[Error/Info] {e}");
     }
 
     private void AppendLog(string message)
@@ -214,7 +175,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             color = Avalonia.Media.Brushes.LightGreen;
         }
-        else if (message.Contains("[Service]") || message.Contains("[CheckDependencies]"))
+        else if (message.Contains("[DependencyCheck]", StringComparison.OrdinalIgnoreCase))
         {
             color = Avalonia.Media.Brushes.DarkGray;
         }
@@ -226,7 +187,6 @@ public partial class MainWindowViewModel : ViewModelBase
         Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
         {
             LogMessages.Add(new Models.LogMessage(message, color));
-            // Limit log size
             if (LogMessages.Count > 1000)
             {
                 LogMessages.RemoveAt(0);
@@ -248,22 +208,41 @@ public partial class MainWindowViewModel : ViewModelBase
             DownloadPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
         }
 
-        SaveSettings(); // Save state before starting
+        SaveSettings();
 
         IsDownloading = true;
         StatusMessage = "Downloading...";
         ProgressValue = 0;
         EstimatedTimeRemaining = "Estimating...";
-        LogMessages.Clear(); // Clear log
+        LogMessages.Clear();
         AppendLog($"Starting download: {GetSafeUrlForLog(VideoUrl)}");
         AppendLog($"Output Path: {DownloadPath}");
 
         try
         {
-            // Run download in background thread to keep UI responsive
-            int exitCode = await Task.Run(() => _downloaderService.DownloadVideoAsync(VideoUrl, DownloadPath));
+            var result = await _downloadClient.DownloadAsync(
+                new DownloadRequest(VideoUrl, DownloadPath),
+                onOutput: AppendLog,
+                onError: line => AppendLog($"[Error/Info] {line}"),
+                onProgress: progress =>
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        ProgressValue = progress.Percentage;
+                        EstimatedTimeRemaining = progress.EstimatedTimeRemaining.HasValue
+                            ? $"Estimated remaining: {progress.EstimatedTimeRemaining.Value:hh\\:mm\\:ss}"
+                            : "Estimating...";
+                    });
+                },
+                onDebug: message =>
+                {
+                    if (EnableDependencyLog)
+                    {
+                        AppendLog($"[Service] {message}");
+                    }
+                });
 
-            if (exitCode == 0)
+            if (result.IsSuccess)
             {
                 StatusMessage = "Download completed successfully!";
                 AppendLog("Download completed successfully!");
@@ -272,8 +251,8 @@ public partial class MainWindowViewModel : ViewModelBase
             }
             else
             {
-                StatusMessage = $"Download failed. Exit code: {exitCode}";
-                AppendLog($"Download failed. Exit code: {exitCode}");
+                StatusMessage = $"Download failed. Exit code: {result.ExitCode}";
+                AppendLog($"Download failed. Exit code: {result.ExitCode}");
                 EstimatedTimeRemaining = "Estimating...";
             }
         }
@@ -302,23 +281,38 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void OpenSettings(Control? control)
     {
-        if (control == null) return;
+        if (control == null)
+        {
+            return;
+        }
+
         var topLevel = TopLevel.GetTopLevel(control) as Window;
-        if (topLevel == null) return;
+        if (topLevel == null)
+        {
+            return;
+        }
 
         var settingsWindow = new Views.SettingsWindow
         {
             DataContext = this
         };
+
         settingsWindow.ShowDialog(topLevel);
     }
 
     [RelayCommand]
     private async Task CopyAllLogsAsync(Control? control)
     {
-        if (control == null) return;
+        if (control == null)
+        {
+            return;
+        }
+
         var topLevel = TopLevel.GetTopLevel(control);
-        if (topLevel?.Clipboard == null) return;
+        if (topLevel?.Clipboard == null)
+        {
+            return;
+        }
 
         var fullLog = string.Join(Environment.NewLine, LogMessages.Select(m => m.Text));
         await topLevel.Clipboard.SetTextAsync(fullLog);
@@ -336,5 +330,11 @@ public partial class MainWindowViewModel : ViewModelBase
     private void CloseWindow(Window? window)
     {
         window?.Close();
+    }
+
+    private static (IDependencyService DependencyService, IDownloadClient DownloadClient) CreateDefaultServices()
+    {
+        var bootstrapper = new Services.AppBootstrapper();
+        return (bootstrapper.DependencyService, bootstrapper.DownloadClient);
     }
 }
