@@ -10,17 +10,27 @@ class Program
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
     [STAThread]
-    public static async Task<int> Main(string[] args)
+    public static int Main(string[] args)
     {
-        if (args.Length > 0)
+        try
         {
-            await CliRunner.RunAsync(args);
-            return 0;
+            if (args.Length > 0)
+            {
+                // Synchronously run CLI mode
+                CliRunner.RunAsync(args).GetAwaiter().GetResult();
+                return 0;
+            }
+            else
+            {
+                return BuildAvaloniaApp()
+                    .StartWithClassicDesktopLifetime(args);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            return BuildAvaloniaApp()
-                .StartWithClassicDesktopLifetime(args);
+            var logMessage = $"[{DateTime.Now}] Crash Report:{Environment.NewLine}{ex}{Environment.NewLine}{Environment.NewLine}";
+            System.IO.File.AppendAllText("crash.log", logMessage);
+            return 1;
         }
     }
 

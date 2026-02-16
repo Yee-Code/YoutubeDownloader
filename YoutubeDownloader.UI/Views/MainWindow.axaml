@@ -6,7 +6,8 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="YoutubeDownloader.UI.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="YouTube Downloader"
+        x:Name="MainRoot"
+        Title="{Binding WindowTitle}"
         TransparencyLevelHint="AcrylicBlur"
         Background="Transparent"
         WindowStartupLocation="Manual"
@@ -19,24 +20,22 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Cmd+W" Command="{Binding CloseWindowCommand}" CommandParameter="{Binding #MainRoot}" />
+        <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseWindowCommand}" CommandParameter="{Binding #MainRoot}" />
+    </Window.KeyBindings>
+
     <NativeMenu.Menu>
         <NativeMenu>
             <NativeMenuItem Header="File">
                 <NativeMenu>
                     <NativeMenuItem Header="Open" Gesture="Cmd+O"/>
-                </NativeMenu>
-            </NativeMenuItem>
-            <NativeMenuItem Header="Edit">
-                <NativeMenu>
-                    <NativeMenuItem Header="Undo" Gesture="Cmd+Z"/>
-                    <NativeMenuItem Header="Redo" Gesture="Cmd+Shift+Z"/>
                     <NativeMenuItemSeparator/>
-                    <NativeMenuItem Header="Cut" Gesture="Cmd+X"/>
-                    <NativeMenuItem Header="Copy" Gesture="Cmd+C"/>
-                    <NativeMenuItem Header="Paste" Gesture="Cmd+V"/>
-                    <NativeMenuItem Header="Select All" Gesture="Cmd+A"/>
+                    <NativeMenuItem Header="Close" Gesture="Cmd+W" Click="OnCloseClicked"/>
                 </NativeMenu>
             </NativeMenuItem>
+
+
         </NativeMenu>
     </NativeMenu.Menu>
 
@@ -53,11 +52,27 @@
 
         <Grid RowDefinitions="Auto, Auto, Auto, *, Auto" Margin="20">
             <!-- Header -->
-            <TextBlock Grid.Row="0" Text="YouTube Downloader" 
-                       FontSize="24" FontWeight="Bold" 
-                       HorizontalAlignment="Center" Margin="0,30,0,20"
-                       Foreground="White"/>
+            <Grid Grid.Row="0" ColumnDefinitions="*, Auto, Auto" Margin="0,30,0,20">
+                <TextBlock Grid.Column="0" Text="YouTube Downloader" 
+                           FontSize="24" FontWeight="Bold" 
+                           HorizontalAlignment="Center"
+                           Foreground="White"/>
 
+                <Button Grid.Column="1" Command="{Binding OpenSettingsCommand}"
+                        CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+                        Background="Transparent" BorderThickness="0"
+                        ToolTip.Tip="Settings">
+                    <PathIcon Data="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.04 4.95,18.95L7.44,17.95C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.95L19.05,18.95C19.27,19.04 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" 
+                              Foreground="White" Width="20" Height="20"/>
+                </Button>
+
+                <Button Grid.Column="2" Click="OnAboutButtonClick"
+                        Background="Transparent" BorderThickness="0"
+                        ToolTip.Tip="About" Margin="0,0,5,0">
+                     <PathIcon Data="M12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2M13,17H11V11H13V17M13,9H11V7H13V9Z"
+                               Foreground="White" Width="20" Height="20"/>
+                </Button>
+            </Grid>
             <!-- Input Area -->
             <StackPanel Grid.Row="1" Spacing="10">
                 <TextBox Watermark="Enter YouTube URL here..." 
@@ -65,7 +80,11 @@
                          IsEnabled="{Binding !IsDownloading}"
                          Classes="clearButton"
                          Height="40"
-                         VerticalContentAlignment="Center"/>
+                         VerticalContentAlignment="Center">
+                    <TextBox.KeyBindings>
+                        <KeyBinding Gesture="Enter" Command="{Binding DownloadCommand}"/>
+                    </TextBox.KeyBindings>
+                </TextBox>
                 
                 <Grid ColumnDefinitions="*, Auto" Margin="0,5">
                     <TextBox Grid.Column="0" Watermark="Output Path (Default: Downloads)" 
@@ -83,15 +102,56 @@
                             VerticalContentAlignment="Center"/>
                 </Grid>
 
-                <Button Content="Download" 
-                        Command="{Binding DownloadCommand}"
-                        IsEnabled="{Binding !IsDownloading}"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        Height="40"
-                        Background="#CCFF0000"
-                        Foreground="White"
-                        FontWeight="SemiBold"/>
+                <Panel>
+                    <Button Content="Download" 
+                            Command="{Binding DownloadCommand}"
+                            IsVisible="{Binding !IsDownloading}"
+                            IsEnabled="{Binding !IsDownloading}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Height="40"
+                            Background="#CCFF0000"
+                            Foreground="White"
+                            FontWeight="SemiBold"/>
+
+                    <Grid ColumnDefinitions="*, *" IsVisible="{Binding IsDownloading}">
+                        <Panel Grid.Column="0" Margin="0,0,5,0">
+                            <Button Content="Pause"
+                                    Command="{Binding PauseCommand}"
+                                    IsVisible="{Binding !IsPaused}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Height="40"
+                                    Background="#FFC107"
+                                    Foreground="Black"
+                                    FontWeight="SemiBold"/>
+                            <Button Content="Resume"
+                                    Command="{Binding ResumeCommand}"
+                                    IsVisible="{Binding IsPaused}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Height="40"
+                                    Background="#4CAF50"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"/>
+                        </Panel>
+
+                        <Button Grid.Column="1" 
+                                Content="Cancel"
+                                Command="{Binding CancelCommand}"
+                                Margin="5,0,0,0"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Height="40"
+                                Background="#F44336"
+                                Foreground="White"
+                                FontWeight="SemiBold"/>
+                    </Grid>
+                </Panel>
             </StackPanel>
 
             <!-- Status & Progress -->
@@ -104,7 +164,8 @@
                 <TextBlock Text="{Binding EstimatedTimeRemaining}"
                            IsVisible="{Binding IsDownloading}"
                            Foreground="#DDFFFFFF"
-                           FontSize="12"/>
+                           FontSize="12"
+                           HorizontalAlignment="Right"/>
             </StackPanel>
 
             <!-- Log Output -->
@@ -114,11 +175,20 @@
                     BorderBrush="#33FFFFFF" 
                     BorderThickness="1"
                     Padding="10">
-                <ScrollViewer>
-                    <TextBlock Text="{Binding LogOutput}" 
-                               FontFamily="Consolas, monospace"
-                               Foreground="#AAAAAA"
-                               TextWrapping="Wrap"/>
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Copy All Logs" 
+                                  Command="{Binding CopyAllLogsCommand}"
+                                  CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Border}}"/>
+                        <MenuItem Header="Clear Logs" 
+                                  Command="{Binding ClearLogsCommand}"/>
+                    </ContextMenu>
+                </Border.ContextMenu>
+                <ScrollViewer Name="LogScrollViewer">
+                    <SelectableTextBlock Name="LogTextBlock" 
+                                         FontFamily="avares://YoutubeDownloader.UI/Resources/Fonts#JetBrains Mono"
+                                         TextWrapping="Wrap"
+                                         Margin="0,0,0,10"/>
                 </ScrollViewer>
             </Border>
             

@@ -1,7 +1,11 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using YoutubeDownloader.Core;
+using YoutubeDownloader.Core.Composition;
+using YoutubeDownloader.Core.Models;
+using YoutubeDownloader.Core.Services;
+using YoutubeDownloader.Core.Utils;
 
 namespace YoutubeDownloader.UI;
 
@@ -14,19 +18,16 @@ public static class CliRunner
 
     public static async Task RunAsync(string[] args)
     {
-        // On Windows, a GUI app doesn't have a console by default.
-        // We attempt to attach to the parent process's console.
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             AttachConsole(ATTACH_PARENT_PROCESS);
         }
 
         Console.WriteLine();
-        Console.WriteLine("YouTube Downloader (CLI Mode)");
+        Console.WriteLine($"YouTube Downloader (CLI Mode) v{AppInfo.GetVersion()}");
         Console.WriteLine("-----------------------------");
 
         var videoUrl = args.Length > 0 ? args[0] : null;
-
         if (string.IsNullOrWhiteSpace(videoUrl))
         {
             Console.WriteLine("Error: No URL provided.");
@@ -34,50 +35,65 @@ public static class CliRunner
             return;
         }
 
-        var downloader = new DownloaderService();
+        var dependencyService = CoreServiceFactory.CreateDependencyService();
+        var downloadClient = CoreServiceFactory.CreateDownloadClient();
 
-        // Check if yt-dlp is installed
-        if (!await downloader.IsYtDlpInstalledAsync())
+        var dependencies = await dependencyService.CheckAsync();
+        foreach (var dependency in dependencies)
         {
-            Console.WriteLine("Error: 'yt-dlp' is not found in PATH.");
-            Console.WriteLine("Please install it.");
+            if (dependency.IsInstalled)
+            {
+                Console.WriteLine($"{dependency.ExecutableName} detected.");
+                continue;
+            }
+
+            var severityPrefix = dependency.Type == DependencyType.YtDlp ? "Error" : "Warning";
+            Console.WriteLine($"{severityPrefix}: '{dependency.ExecutableName}' is not found.");
+            foreach (var hint in DependencyGuidance.GetInstallHints(dependency.Type))
+            {
+                Console.WriteLine(hint);
+            }
+        }
+
+        if (!dependencies.Any(x => x.Type == DependencyType.YtDlp && x.IsInstalled))
+        {
             return;
         }
-
-        // Check if ffmpeg is installed
-        if (!await downloader.IsFfmpegInstalledAsync())
-        {
-            Console.WriteLine("Warning: 'ffmpeg' is not found. High quality video/audio merging might fail.");
-        }
-
-        // Subscribe to events
-        downloader.OutputReceived += (sender, data) => Console.WriteLine(data);
-        downloader.ErrorReceived += (sender, data) => Console.WriteLine($"[Error/Info] {data}");
-        downloader.ProgressChanged += (sender, progress) =>
-        {
-            if (Console.IsOutputRedirected) return;
-            try
-            {
-                int width = 50;
-                int filled = (int)(width * progress / 100);
-                string bar = new string('#', filled) + new string('-', width - filled);
-                Console.Write($"\rProgress: [{bar}] {progress:F1}%");
-            }
-            catch { /* Ignore console errors */ }
-        };
 
         try
         {
             Console.WriteLine($"Starting download: {videoUrl}...");
-            int exitCode = await downloader.DownloadVideoAsync(videoUrl);
+            var result = await downloadClient.DownloadAsync(
+                new DownloadRequest(videoUrl, OutputDirectory: null),
+                onOutput: Console.WriteLine,
+                onError: line => Console.WriteLine($"[Error/Info] {line}"),
+                onProgress: progress =>
+                {
+                    if (Console.IsOutputRedirected)
+                    {
+                        return;
+                    }
 
-            if (exitCode == 0)
+                    try
+                    {
+                        const int width = 50;
+                        var filled = (int)(width * progress.Percentage / 100);
+                        var bar = new string('#', filled) + new string('-', width - filled);
+                        Console.Write($"\rProgress: [{bar}] {progress.Percentage:F1}%");
+                    }
+                    catch
+                    {
+                        // Ignore console errors
+                    }
+                });
+
+            if (result.IsSuccess)
             {
                 Console.WriteLine("\nDownload completed successfully!");
             }
             else
             {
-                Console.WriteLine($"\nDownload failed with exit code {exitCode}.");
+                Console.WriteLine($"\nDownload failed with exit code {result.ExitCode}.");
             }
         }
         catch (Exception ex)

@@ -15,6 +15,7 @@ namespace YoutubeDownloader.UI.Services
         public double WindowHeight { get; set; } = 450;
         public int WindowX { get; set; } = -1;
         public int WindowY { get; set; } = -1;
+        public bool EnableDependencyLog { get; set; } = true;
     }
 
     public static class SettingsManager
@@ -23,6 +24,12 @@ namespace YoutubeDownloader.UI.Services
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "YoutubeDownloader",
             "settings.json");
+
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            WriteIndented = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        };
 
         public static AppSettings Load()
         {
@@ -72,16 +79,11 @@ namespace YoutubeDownloader.UI.Services
                     WindowWidth = settings.WindowWidth,
                     WindowHeight = settings.WindowHeight,
                     WindowX = settings.WindowX,
-                    WindowY = settings.WindowY
+                    WindowY = settings.WindowY,
+                    EnableDependencyLog = settings.EnableDependencyLog
                 };
 
-                string json = JsonSerializer.Serialize(
-                    sanitizedSettings,
-                    new JsonSerializerOptions
-                    {
-                        WriteIndented = true,
-                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                    });
+                string json = JsonSerializer.Serialize(sanitizedSettings, _jsonOptions);
                 File.WriteAllText(settingsFilePath, json);
             }
             catch

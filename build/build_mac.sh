@@ -1,8 +1,10 @@
 #!/bin/bash
 
+RID=${1:-osx-arm64}
 APP_NAME="YoutubeDownloader"
-PUBLISH_DIR="bin/Release/net10.0/osx-arm64/publish"
-APP_DIR="$APP_NAME.app"
+OUTPUT_BASE="release/$RID"
+PUBLISH_DIR="$OUTPUT_BASE/publish"
+APP_DIR="$OUTPUT_BASE/$APP_NAME.app"
 ICON_SOURCE="YoutubeDownloader.UI/App.ico"
 ICON_ICNS="YoutubeDownloader.UI/App.icns"
 VERSION=$(cat VERSION)
@@ -29,18 +31,20 @@ echo "Updating app.manifest version to $VERSION..."
 sed -i '' "s/assemblyIdentity version=\"[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\"/assemblyIdentity version=\"${VERSION}.0\"/" YoutubeDownloader.UI/app.manifest
 
 # Publish the app
-echo "Publishing..."
+echo "Publishing for $RID..."
 rm -rf "$PUBLISH_DIR"
-dotnet publish YoutubeDownloader.UI/YoutubeDownloader.UI.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$PUBLISH_DIR"
+dotnet publish YoutubeDownloader.UI/YoutubeDownloader.UI.csproj -c Release -r "$RID" --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=embedded -p:Version=$VERSION -o "$PUBLISH_DIR"
 
 # Create .app bundle structure
-echo "Creating .app bundle..."
+echo "Creating .app bundle in $APP_DIR..."
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
 
 # Copy published files
-cp -a "$PUBLISH_DIR/." "$APP_DIR/Contents/MacOS/"
+# Copy published files
+cp "$PUBLISH_DIR/$APP_NAME.UI" "$APP_DIR/Contents/MacOS/"
+cp "VERSION" "$APP_DIR/Contents/MacOS/"
 
 # Copy icon
 cp "$ICON_ICNS" "$APP_DIR/Contents/Resources/App.icns"
@@ -75,3 +79,4 @@ cat > "$APP_DIR/Contents/Info.plist" <<EOF
 EOF
 
 echo "Build complete: $APP_DIR"
+rm -rf "$PUBLISH_DIR"

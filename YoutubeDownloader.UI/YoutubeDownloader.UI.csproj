@@ -10,6 +10,14 @@
 
   <ItemGroup>
     <AvaloniaResource Include="App.ico" />
+    <AvaloniaResource Include="Resources/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\VERSION">
+      <Link>VERSION</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

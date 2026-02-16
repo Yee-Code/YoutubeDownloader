@@ -1,74 +1,72 @@
 # YouTube Downloader
 
-A cross-platform YouTube video downloader built with .NET 10, integrating the power of `yt-dlp`. It offers a clean and modern Graphical User Interface (Avalonia UI) and an efficient Command Line Interface (CLI).
+A cross-platform YouTube video downloader built with .NET 10 and `yt-dlp`, with both Avalonia UI and CLI modes.
 
-## Key Features
+## Architecture (Refactored)
 
-- **High Quality Downloads**: Automatically selects the best video and audio quality (`bestvideo+bestaudio/best`).
-- **Auto-Merge**: Automatically merges video and audio into MP4 format after download.
-- **Modern Interface**: Built with Avalonia UI, supporting smooth animations and Acrylic transparency effects (macOS/Windows).
-- **Real-time Progress**: Displays download progress bars, estimated time remaining, and detailed logs.
-- **Smart Memory**: Automatically remembers the last used download path, window size, and position.
-- **Dual Mode Support**: Provides both Graphical User Interface (GUI) and Command Line Interface (CLI).
-- **Cross-Platform**: Fully supports Windows, macOS, and Linux.
+The project is now split with SOLID-oriented boundaries:
+
+- `YoutubeDownloader.Core/Abstractions`: interfaces (`IDownloadClient`, `IDependencyService`, `IProcessRunner`, `IExecutableLocator`, `IProgressParser`)
+- `YoutubeDownloader.Core/Infrastructure`: OS/process adapters (`SystemProcessRunner`, `SystemExecutableLocator`)
+- `YoutubeDownloader.Core/Services`: business/application services (`DownloadClient`, `DependencyService`, `DefaultProgressParser`, `DependencyGuidance`)
+- `YoutubeDownloader.Core/Composition`: default wiring (`CoreServiceFactory`)
+- `YoutubeDownloader.UI`: presentation layer only (ViewModel + UI), depends on abstractions
+
+This design enables easier future extension:
+
+- swap process execution strategy without touching UI
+- replace `yt-dlp` engine with a different provider
+- add platform-specific behavior by implementing abstractions
+- improve testability with fake implementations
+
+## Features
+
+- Best-quality download via `bestvideo+bestaudio/best`
+- MP4 merge via `ffmpeg`
+- Real-time progress + ETA parsing
+- Dependency detection (`yt-dlp`, `ffmpeg`, `node`)
+- Privacy-by-default settings persistence (URL not saved)
+- Cross-platform: Windows/macOS/Linux
 
 ## Prerequisites
 
-Before running this application, ensure your system has the following components installed:
+1. [.NET 10 SDK](https://dotnet.microsoft.com/download)
+2. [yt-dlp](https://github.com/yt-dlp/yt-dlp)
+3. [ffmpeg](https://ffmpeg.org/) (recommended)
+4. Node.js (recommended for some sites/scenarios)
 
-1.  **[.NET 10 SDK](https://dotnet.microsoft.com/download)** (Required runtime environment)
-2.  **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** (Core download engine, must be added to the system PATH)
-    - **macOS**: `brew install yt-dlp`
-    - **Windows/Linux**: Refer to the official installation guide.
-3.  **[ffmpeg](https://ffmpeg.org/)** (Highly recommended for merging high-quality video and audio)
-    - **macOS**: `brew install ffmpeg`
-    - **Windows**: `winget install ffmpeg` or install manually and add to PATH.
+Examples:
 
-## Build and Run
+- macOS: `brew install yt-dlp ffmpeg node`
+- Windows: `winget install yt-dlp Gyan.FFmpeg OpenJS.NodeJS`
 
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/Yee-Code/YoutubeDownloader.git
-cd YoutubeDownloader
-```
-
-### 2. Build the Project
+## Build
 
 ```bash
 dotnet build YoutubeDownloader.sln
 ```
 
-### 3. Run the Application
+## Run
 
-#### Desktop UI (Recommended)
-
-Suitable for general users, providing an intuitive experience.
+UI:
 
 ```bash
 dotnet run --project YoutubeDownloader.UI/YoutubeDownloader.UI.csproj
 ```
 
-**Features:**
-- Paste a YouTube URL directly to download.
-- Use the `...` button to select the download location.
-- Supports window dragging and resizing, and automatically remembers your preferences.
-
-#### Command Line Interface (CLI)
-
-Suitable for script automation or terminal users.
+CLI:
 
 ```bash
-dotnet run --project YoutubeDownloader.CLI/YoutubeDownloader.CLI.csproj
+dotnet run --project YoutubeDownloader.UI/YoutubeDownloader.UI.csproj -- "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
-**Instructions:**
-- Enter a YouTube URL after startup.
-- If no output path is specified, it defaults to the current directory.
-- Type `exit` to quit.
+## Tests
+
+```bash
+dotnet test YoutubeDownloader.sln --nologo
+```
 
 ## Troubleshooting
-
 - **Error: `yt-dlp` not found**
   - Ensure `yt-dlp` is installed and you can run `yt-dlp --version` in the terminal.
   - Make sure its directory is added to the system's PATH environment variable.
@@ -76,12 +74,16 @@ dotnet run --project YoutubeDownloader.CLI/YoutubeDownloader.CLI.csproj
 - **Video has only audio or only video?**
   - This is usually due to missing `ffmpeg`. `yt-dlp` requires `ffmpeg` to merge high-quality video and audio streams. Please install `ffmpeg` to resolve this.
 
+- **Some videos fail/throttle**
+  - Try to install Node.js.
+
 - **Slow download speed?**
   - This may depend on YouTube server limits or your network conditions. The program uses `yt-dlp` default configurations.
+
 - **App is damaged and can't be opened? (macOS)**
   - This is a common macOS security feature for apps not signed by an identified developer.
   - To fix this, run the following command in Terminal:
     ```bash
-    sudo xattr -rd com.apple.quarantine YoutubeDownloader.app
+    sudo xattr -rd com.apple.quarantine /Applications/YoutubeDownloader.app
     ```
 

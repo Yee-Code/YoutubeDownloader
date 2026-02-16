@@ -1,16 +1,21 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using YoutubeDownloader.Core;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using YoutubeDownloader.Core.Abstractions;
+using YoutubeDownloader.Core.Models;
+using YoutubeDownloader.Core.Services;
+using YoutubeDownloader.Core.Utils;
 
 namespace YoutubeDownloader.UI.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    private readonly DownloaderService _downloaderService;
+    private readonly IDependencyService _dependencyService;
+    private readonly IDownloadClient _downloadClient;
 
     [ObservableProperty]
     private string _videoUrl = string.Empty;
@@ -19,7 +24,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _downloadPath = string.Empty;
 
     [ObservableProperty]
-    private string _logOutput = string.Empty;
+    private System.Collections.ObjectModel.ObservableCollection<Models.LogMessage> _logMessages = new();
 
     [ObservableProperty]
     private double _progressValue;
@@ -31,27 +36,47 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _statusMessage = "Ready";
 
     [ObservableProperty]
+    private bool _isPaused;
+
+    private System.Threading.CancellationTokenSource? _cancellationTokenSource;
+
+    [ObservableProperty]
     private string _estimatedTimeRemaining = "Estimating...";
 
-    // Window properties for persistence
-    public double WindowWidth { get; set; } = 800;
-    public double WindowHeight { get; set; } = 450;
-    public int WindowX { get; set; } = -1;
-    public int WindowY { get; set; } = -1;
+    public string WindowTitle { get; } = $"YouTube Downloader v{AppInfo.GetVersion()}";
+
+    [ObservableProperty]
+    private double _windowWidth = 800;
+
+    [ObservableProperty]
+    private double _windowHeight = 450;
+
+    [ObservableProperty]
+    private int _windowX = -1;
+
+    [ObservableProperty]
+    private int _windowY = -1;
+
+    [ObservableProperty]
+    private bool _enableDependencyLog = true;
 
     public MainWindowViewModel()
+        : this(CreateDefaultServices())
     {
-        _downloaderService = new DownloaderService();
-        _downloaderService.OutputReceived += OnOutputReceived;
-        _downloaderService.ErrorReceived += OnErrorReceived;
-        _downloaderService.ProgressChanged += OnProgressChanged;
-        _downloaderService.EstimatedTimeRemainingChanged += OnEstimatedTimeRemainingChanged;
+    }
 
-        // Load settings
+    private MainWindowViewModel((IDependencyService DependencyService, IDownloadClient DownloadClient) services)
+        : this(services.DependencyService, services.DownloadClient)
+    {
+    }
+
+    public MainWindowViewModel(IDependencyService dependencyService, IDownloadClient downloadClient)
+    {
+        _dependencyService = dependencyService;
+        _downloadClient = downloadClient;
+
         LoadSettings();
-
-        // Initial check
-        CheckDependencies();
+        _ = CheckDependenciesAsync();
     }
 
     private void LoadSettings()
@@ -63,6 +88,7 @@ public partial class MainWindowViewModel : ViewModelBase
         WindowHeight = settings.WindowHeight;
         WindowX = settings.WindowX;
         WindowY = settings.WindowY;
+        EnableDependencyLog = settings.EnableDependencyLog;
     }
 
     public void SaveSettings()
@@ -74,18 +100,26 @@ public partial class MainWindowViewModel : ViewModelBase
             WindowWidth = WindowWidth,
             WindowHeight = WindowHeight,
             WindowX = WindowX,
-            WindowY = WindowY
+            WindowY = WindowY,
+            EnableDependencyLog = EnableDependencyLog
         };
+
         Services.SettingsManager.Save(settings);
     }
 
     [RelayCommand]
     private async Task BrowseAsync(Control? control)
     {
-        if (control == null) return;
+        if (control == null)
+        {
+            return;
+        }
 
         var topLevel = TopLevel.GetTopLevel(control);
-        if (topLevel == null) return;
+        if (topLevel == null)
+        {
+            return;
+        }
 
         var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
@@ -96,58 +130,73 @@ public partial class MainWindowViewModel : ViewModelBase
         if (folders.Count > 0)
         {
             DownloadPath = folders[0].Path.LocalPath;
-            SaveSettings(); // Auto-save on change
+            SaveSettings();
         }
     }
 
-    private void OnProgressChanged(object? sender, double e)
+    private async Task CheckDependenciesAsync()
     {
-        ProgressValue = e;
-    }
-
-    private void OnEstimatedTimeRemainingChanged(object? sender, TimeSpan? eta)
-    {
-        EstimatedTimeRemaining = eta.HasValue
-            ? $"Estimated remaining: {eta.Value:hh\\:mm\\:ss}"
-            : "Estimating...";
-    }
-
-    private async void CheckDependencies()
-    {
-        bool ytDlp = await _downloaderService.IsYtDlpInstalledAsync();
-        bool ffmpeg = await _downloaderService.IsFfmpegInstalledAsync();
-
-        if (!ytDlp)
+        if (EnableDependencyLog)
         {
-            AppendLog("Error: 'yt-dlp' is not found. Please install it via Homebrew: brew install yt-dlp");
+            AppendLog("[DependencyCheck] Starting checks...");
         }
-        if (!ffmpeg)
+
+        var dependencies = await _dependencyService.CheckAsync().ConfigureAwait(false);
+
+        foreach (var dependency in dependencies)
         {
-            AppendLog("Warning: 'ffmpeg' is not found. Merging might fail.");
+            if (dependency.IsInstalled)
+            {
+                AppendLog($"{dependency.ExecutableName} detected.");
+                continue;
+            }
+
+            var severityPrefix = dependency.Type == DependencyType.YtDlp ? "Error" : "Warning";
+            AppendLog($"{severityPrefix}: '{dependency.ExecutableName}' is not found.");
+
+            foreach (var hint in DependencyGuidance.GetInstallHints(dependency.Type))
+            {
+                AppendLog(hint);
+            }
         }
-
-        if (ytDlp) AppendLog("yt-dlp detected.");
-        if (ffmpeg) AppendLog("ffmpeg detected.");
-    }
-
-    private void OnOutputReceived(object? sender, string e)
-    {
-        AppendLog(e);
-    }
-
-    private void OnErrorReceived(object? sender, string e)
-    {
-        AppendLog($"[Error/Info] {e}");
     }
 
     private void AppendLog(string message)
     {
-        // Limit log size to prevent UI lag
-        if (LogOutput.Length > 10000)
+        Avalonia.Media.IBrush color;
+
+        if (message.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("[Error]", StringComparison.OrdinalIgnoreCase))
         {
-            LogOutput = LogOutput.Substring(LogOutput.Length - 5000);
+            color = Avalonia.Media.Brushes.Red;
         }
-        LogOutput += $"{message}\n";
+        else if (message.Contains("Warning", StringComparison.OrdinalIgnoreCase) ||
+                 message.Contains("[Warning]", StringComparison.OrdinalIgnoreCase))
+        {
+            color = Avalonia.Media.Brushes.Yellow;
+        }
+        else if (message.Contains("Success", StringComparison.OrdinalIgnoreCase) ||
+                 message.Contains("completed", StringComparison.OrdinalIgnoreCase))
+        {
+            color = Avalonia.Media.Brushes.LightGreen;
+        }
+        else if (message.Contains("[DependencyCheck]", StringComparison.OrdinalIgnoreCase))
+        {
+            color = Avalonia.Media.Brushes.DarkGray;
+        }
+        else
+        {
+            color = Avalonia.Media.Brushes.White;
+        }
+
+        Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
+        {
+            LogMessages.Add(new Models.LogMessage(message, color));
+            if (LogMessages.Count > 1000)
+            {
+                LogMessages.RemoveAt(0);
+            }
+        });
     }
 
     [RelayCommand]
@@ -164,22 +213,53 @@ public partial class MainWindowViewModel : ViewModelBase
             DownloadPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
         }
 
-        SaveSettings(); // Save state before starting
+        SaveSettings();
 
         IsDownloading = true;
+        IsPaused = false;
         StatusMessage = "Downloading...";
         ProgressValue = 0;
         EstimatedTimeRemaining = "Estimating...";
-        LogOutput = string.Empty; // Clear log
+        LogMessages.Clear();
+
+        await StartDownloadAsync();
+    }
+
+    private async Task StartDownloadAsync()
+    {
+        _cancellationTokenSource = new System.Threading.CancellationTokenSource();
+
         AppendLog($"Starting download: {GetSafeUrlForLog(VideoUrl)}");
         AppendLog($"Output Path: {DownloadPath}");
 
+
+
         try
         {
-            // Run download in background thread to keep UI responsive
-            int exitCode = await Task.Run(() => _downloaderService.DownloadVideoAsync(VideoUrl, DownloadPath));
+            var result = await _downloadClient.DownloadAsync(
+                new DownloadRequest(VideoUrl, DownloadPath),
+                onOutput: AppendLog,
+                onError: line => AppendLog($"[Error/Info] {line}"),
+                onProgress: progress =>
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        ProgressValue = progress.Percentage;
+                        EstimatedTimeRemaining = progress.EstimatedTimeRemaining.HasValue
+                            ? $"Estimated remaining: {progress.EstimatedTimeRemaining.Value:hh\\:mm\\:ss}"
+                            : "Estimating...";
+                    });
+                },
+                onDebug: message =>
+                {
+                    if (EnableDependencyLog)
+                    {
+                        AppendLog($"[Service] {message}");
+                    }
+                },
+                cancellationToken: _cancellationTokenSource.Token);
 
-            if (exitCode == 0)
+            if (result.IsSuccess)
             {
                 StatusMessage = "Download completed successfully!";
                 AppendLog("Download completed successfully!");
@@ -188,8 +268,24 @@ public partial class MainWindowViewModel : ViewModelBase
             }
             else
             {
-                StatusMessage = $"Download failed. Exit code: {exitCode}";
-                AppendLog($"Download failed. Exit code: {exitCode}");
+                StatusMessage = $"Download failed. Exit code: {result.ExitCode}";
+                AppendLog($"Download failed. Exit code: {result.ExitCode}");
+                EstimatedTimeRemaining = "Estimating...";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            if (IsPaused)
+            {
+                StatusMessage = "Paused";
+                AppendLog("Download paused.");
+            }
+            else
+            {
+                StatusMessage = "Cancelled";
+                AppendLog("Download cancelled.");
+                IsDownloading = false;
+                ProgressValue = 0;
                 EstimatedTimeRemaining = "Estimating...";
             }
         }
@@ -201,7 +297,57 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         finally
         {
-            IsDownloading = false;
+            if (!IsPaused)
+            {
+                IsDownloading = false;
+            }
+
+            _cancellationTokenSource.Dispose();
+            _cancellationTokenSource = null;
+        }
+    }
+
+    [RelayCommand]
+    private void Pause()
+    {
+        if (IsDownloading && !IsPaused)
+        {
+            IsPaused = true;
+            _cancellationTokenSource?.Cancel();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ResumeAsync()
+    {
+        if (IsDownloading && IsPaused)
+        {
+            IsPaused = false;
+            StatusMessage = "Resuming...";
+            AppendLog("Resuming download...");
+            await StartDownloadAsync();
+        }
+    }
+
+    [RelayCommand]
+    private void Cancel()
+    {
+        if (IsDownloading)
+        {
+            if (IsPaused)
+            {
+                IsPaused = false;
+                IsDownloading = false;
+                StatusMessage = "Cancelled";
+                AppendLog("Download cancelled.");
+                ProgressValue = 0;
+                EstimatedTimeRemaining = "Estimating...";
+            }
+            else
+            {
+                IsPaused = false; // Ensure we don't convert to paused state
+                _cancellationTokenSource?.Cancel();
+            }
         }
     }
 
@@ -213,5 +359,65 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         return $"{uri.Scheme}://{uri.Host}{uri.AbsolutePath}";
+    }
+
+    [RelayCommand]
+    private void OpenSettings(Control? control)
+    {
+        if (control == null)
+        {
+            return;
+        }
+
+        var topLevel = TopLevel.GetTopLevel(control) as Window;
+        if (topLevel == null)
+        {
+            return;
+        }
+
+        var settingsWindow = new Views.SettingsWindow
+        {
+            DataContext = this
+        };
+
+        settingsWindow.ShowDialog(topLevel);
+    }
+
+    [RelayCommand]
+    private async Task CopyAllLogsAsync(Control? control)
+    {
+        if (control == null)
+        {
+            return;
+        }
+
+        var topLevel = TopLevel.GetTopLevel(control);
+        if (topLevel?.Clipboard == null)
+        {
+            return;
+        }
+
+        var fullLog = string.Join(Environment.NewLine, LogMessages.Select(m => m.Text));
+        await topLevel.Clipboard.SetTextAsync(fullLog);
+    }
+
+    [RelayCommand]
+    private void ClearLogs()
+    {
+        LogMessages.Clear();
+    }
+
+    partial void OnEnableDependencyLogChanged(bool value) => SaveSettings();
+
+    [RelayCommand]
+    private void CloseWindow(Window? window)
+    {
+        window?.Close();
+    }
+
+    private static (IDependencyService DependencyService, IDownloadClient DownloadClient) CreateDefaultServices()
+    {
+        var bootstrapper = new Services.AppBootstrapper();
+        return (bootstrapper.DependencyService, bootstrapper.DownloadClient);
     }
 }
