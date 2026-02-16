@@ -96,10 +96,7 @@ public partial class MainWindow : Window
         ShowAboutWindow();
     }
 
-    private void OnAboutMenuClick(object? sender, System.EventArgs e)
-    {
-        ShowAboutWindow();
-    }
+
 
     private void ShowAboutWindow()
     {
