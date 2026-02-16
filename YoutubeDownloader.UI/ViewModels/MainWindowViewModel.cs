@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using System.Linq;
 using Avalonia.Platform.Storage;
 using System.Runtime.InteropServices;
+using YoutubeDownloader.Core.Utils;
 
 namespace YoutubeDownloader.UI.ViewModels;
 
@@ -36,7 +37,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _estimatedTimeRemaining = "Estimating...";
 
     // Window properties for persistence
-    public string WindowTitle { get; } = $"YouTube Downloader v{System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0"}";
+    public string WindowTitle { get; } = $"YouTube Downloader v{AppInfo.GetVersion()}";
+
     public double WindowWidth { get; set; } = 800;
     public double WindowHeight { get; set; } = 450;
     public int WindowX { get; set; } = -1;

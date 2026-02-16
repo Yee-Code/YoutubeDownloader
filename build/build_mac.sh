@@ -44,6 +44,7 @@ mkdir -p "$APP_DIR/Contents/Resources"
 # Copy published files
 # Copy published files
 cp "$PUBLISH_DIR/$APP_NAME.UI" "$APP_DIR/Contents/MacOS/"
+cp "VERSION" "$APP_DIR/Contents/MacOS/"
 
 # Copy icon
 cp "$ICON_ICNS" "$APP_DIR/Contents/Resources/App.icns"

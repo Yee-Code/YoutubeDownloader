@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using YoutubeDownloader.Core;
+using YoutubeDownloader.Core.Utils;
 
 namespace YoutubeDownloader.UI;
 
@@ -22,7 +23,7 @@ public static class CliRunner
         }
 
         Console.WriteLine();
-        Console.WriteLine($"YouTube Downloader (CLI Mode) v{System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "1.0.0"}");
+        Console.WriteLine($"YouTube Downloader (CLI Mode) v{AppInfo.GetVersion()}");
         Console.WriteLine("-----------------------------");
 
         var videoUrl = args.Length > 0 ? args[0] : null;

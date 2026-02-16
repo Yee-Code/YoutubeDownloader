@@ -6,6 +6,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using YoutubeDownloader.UI.ViewModels;
 using YoutubeDownloader.UI.Views;
+using YoutubeDownloader.Core.Utils;
 
 namespace YoutubeDownloader.UI;
 
@@ -256,9 +257,7 @@ public partial class App : Application
 
     private void OpenAboutWindow(Window owner)
     {
-        var version = System.IO.File.Exists("VERSION")
-            ? System.IO.File.ReadAllText("VERSION").Trim()
-            : "0.0.0";
+        var version = AppInfo.GetVersion();
 
         var aboutWindow = new Window
         {
