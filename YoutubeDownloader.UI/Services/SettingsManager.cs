@@ -25,6 +25,12 @@ namespace YoutubeDownloader.UI.Services
             "YoutubeDownloader",
             "settings.json");
 
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            WriteIndented = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        };
+
         public static AppSettings Load()
         {
             return LoadFromPath(SettingsFilePath);
@@ -77,13 +83,7 @@ namespace YoutubeDownloader.UI.Services
                     EnableDependencyLog = settings.EnableDependencyLog
                 };
 
-                string json = JsonSerializer.Serialize(
-                    sanitizedSettings,
-                    new JsonSerializerOptions
-                    {
-                        WriteIndented = true,
-                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                    });
+                string json = JsonSerializer.Serialize(sanitizedSettings, _jsonOptions);
                 File.WriteAllText(settingsFilePath, json);
             }
             catch

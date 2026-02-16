@@ -12,15 +12,23 @@ class Program
     [STAThread]
     public static async Task<int> Main(string[] args)
     {
-        if (args.Length > 0)
+        try
         {
-            await CliRunner.RunAsync(args);
-            return 0;
+            if (args.Length > 0)
+            {
+                await CliRunner.RunAsync(args);
+                return 0;
+            }
+            else
+            {
+                return BuildAvaloniaApp()
+                    .StartWithClassicDesktopLifetime(args);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            return BuildAvaloniaApp()
-                .StartWithClassicDesktopLifetime(args);
+            System.IO.File.WriteAllText("crash.log", ex.ToString());
+            return 1;
         }
     }
 

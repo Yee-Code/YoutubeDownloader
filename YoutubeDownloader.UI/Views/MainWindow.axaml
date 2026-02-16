@@ -34,17 +34,7 @@
                     <NativeMenuItem Header="Close" Gesture="Cmd+W" Click="OnCloseClicked"/>
                 </NativeMenu>
             </NativeMenuItem>
-            <NativeMenuItem Header="Edit">
-                <NativeMenu>
-                    <NativeMenuItem Header="Undo" Gesture="Cmd+Z"/>
-                    <NativeMenuItem Header="Redo" Gesture="Cmd+Shift+Z"/>
-                    <NativeMenuItemSeparator/>
-                    <NativeMenuItem Header="Cut" Gesture="Cmd+X"/>
-                    <NativeMenuItem Header="Copy" Gesture="Cmd+C"/>
-                    <NativeMenuItem Header="Paste" Gesture="Cmd+V"/>
-                    <NativeMenuItem Header="Select All" Gesture="Cmd+A"/>
-                </NativeMenu>
-            </NativeMenuItem>
+
         </NativeMenu>
     </NativeMenu.Menu>
 
