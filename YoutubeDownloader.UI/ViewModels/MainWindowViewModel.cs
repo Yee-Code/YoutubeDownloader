@@ -36,6 +36,11 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _statusMessage = "Ready";
 
     [ObservableProperty]
+    private bool _isPaused;
+
+    private System.Threading.CancellationTokenSource? _cancellationTokenSource;
+
+    [ObservableProperty]
     private string _estimatedTimeRemaining = "Estimating...";
 
     public string WindowTitle { get; } = $"YouTube Downloader v{AppInfo.GetVersion()}";
@@ -211,12 +216,23 @@ public partial class MainWindowViewModel : ViewModelBase
         SaveSettings();
 
         IsDownloading = true;
+        IsPaused = false;
         StatusMessage = "Downloading...";
         ProgressValue = 0;
         EstimatedTimeRemaining = "Estimating...";
         LogMessages.Clear();
+
+        await StartDownloadAsync();
+    }
+
+    private async Task StartDownloadAsync()
+    {
+        _cancellationTokenSource = new System.Threading.CancellationTokenSource();
+
         AppendLog($"Starting download: {GetSafeUrlForLog(VideoUrl)}");
         AppendLog($"Output Path: {DownloadPath}");
+
+
 
         try
         {
@@ -240,7 +256,8 @@ public partial class MainWindowViewModel : ViewModelBase
                     {
                         AppendLog($"[Service] {message}");
                     }
-                });
+                },
+                cancellationToken: _cancellationTokenSource.Token);
 
             if (result.IsSuccess)
             {
@@ -256,6 +273,22 @@ public partial class MainWindowViewModel : ViewModelBase
                 EstimatedTimeRemaining = "Estimating...";
             }
         }
+        catch (OperationCanceledException)
+        {
+            if (IsPaused)
+            {
+                StatusMessage = "Paused";
+                AppendLog("Download paused.");
+            }
+            else
+            {
+                StatusMessage = "Cancelled";
+                AppendLog("Download cancelled.");
+                IsDownloading = false;
+                ProgressValue = 0;
+                EstimatedTimeRemaining = "Estimating...";
+            }
+        }
         catch (Exception ex)
         {
             StatusMessage = "Error occurred.";
@@ -264,7 +297,57 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         finally
         {
-            IsDownloading = false;
+            if (!IsPaused)
+            {
+                IsDownloading = false;
+            }
+
+            _cancellationTokenSource.Dispose();
+            _cancellationTokenSource = null;
+        }
+    }
+
+    [RelayCommand]
+    private void Pause()
+    {
+        if (IsDownloading && !IsPaused)
+        {
+            IsPaused = true;
+            _cancellationTokenSource?.Cancel();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ResumeAsync()
+    {
+        if (IsDownloading && IsPaused)
+        {
+            IsPaused = false;
+            StatusMessage = "Resuming...";
+            AppendLog("Resuming download...");
+            await StartDownloadAsync();
+        }
+    }
+
+    [RelayCommand]
+    private void Cancel()
+    {
+        if (IsDownloading)
+        {
+            if (IsPaused)
+            {
+                IsPaused = false;
+                IsDownloading = false;
+                StatusMessage = "Cancelled";
+                AppendLog("Download cancelled.");
+                ProgressValue = 0;
+                EstimatedTimeRemaining = "Estimating...";
+            }
+            else
+            {
+                IsPaused = false; // Ensure we don't convert to paused state
+                _cancellationTokenSource?.Cancel();
+            }
         }
     }
 

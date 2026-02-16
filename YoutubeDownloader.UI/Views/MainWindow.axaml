@@ -102,16 +102,56 @@
                             VerticalContentAlignment="Center"/>
                 </Grid>
 
-                <Button Content="Download" 
-                        Command="{Binding DownloadCommand}"
-                        IsEnabled="{Binding !IsDownloading}"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Height="40"
-                        Background="#CCFF0000"
-                        Foreground="White"
-                        FontWeight="SemiBold"/>
+                <Panel>
+                    <Button Content="Download" 
+                            Command="{Binding DownloadCommand}"
+                            IsVisible="{Binding !IsDownloading}"
+                            IsEnabled="{Binding !IsDownloading}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Height="40"
+                            Background="#CCFF0000"
+                            Foreground="White"
+                            FontWeight="SemiBold"/>
+
+                    <Grid ColumnDefinitions="*, *" IsVisible="{Binding IsDownloading}">
+                        <Panel Grid.Column="0" Margin="0,0,5,0">
+                            <Button Content="Pause"
+                                    Command="{Binding PauseCommand}"
+                                    IsVisible="{Binding !IsPaused}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Height="40"
+                                    Background="#FFC107"
+                                    Foreground="Black"
+                                    FontWeight="SemiBold"/>
+                            <Button Content="Resume"
+                                    Command="{Binding ResumeCommand}"
+                                    IsVisible="{Binding IsPaused}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Height="40"
+                                    Background="#4CAF50"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"/>
+                        </Panel>
+
+                        <Button Grid.Column="1" 
+                                Content="Cancel"
+                                Command="{Binding CancelCommand}"
+                                Margin="5,0,0,0"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Height="40"
+                                Background="#F44336"
+                                Foreground="White"
+                                FontWeight="SemiBold"/>
+                    </Grid>
+                </Panel>
             </StackPanel>
 
             <!-- Status & Progress -->
