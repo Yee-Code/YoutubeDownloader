@@ -10,13 +10,14 @@ class Program
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
     [STAThread]
-    public static async Task<int> Main(string[] args)
+    public static int Main(string[] args)
     {
         try
         {
             if (args.Length > 0)
             {
-                await CliRunner.RunAsync(args);
+                // Synchronously run CLI mode
+                CliRunner.RunAsync(args).GetAwaiter().GetResult();
                 return 0;
             }
             else
@@ -27,7 +28,8 @@ class Program
         }
         catch (Exception ex)
         {
-            System.IO.File.WriteAllText("crash.log", ex.ToString());
+            var logMessage = $"[{DateTime.Now}] Crash Report:{Environment.NewLine}{ex}{Environment.NewLine}{Environment.NewLine}";
+            System.IO.File.AppendAllText("crash.log", logMessage);
             return 1;
         }
     }
