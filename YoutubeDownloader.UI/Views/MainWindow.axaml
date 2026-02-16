@@ -117,7 +117,8 @@
                 <TextBlock Text="{Binding EstimatedTimeRemaining}"
                            IsVisible="{Binding IsDownloading}"
                            Foreground="#DDFFFFFF"
-                           FontSize="12"/>
+                           FontSize="12"
+                           HorizontalAlignment="Right"/>
             </StackPanel>
 
             <!-- Log Output -->
@@ -127,11 +128,20 @@
                     BorderBrush="#33FFFFFF" 
                     BorderThickness="1"
                     Padding="10">
-                <ScrollViewer>
-                    <SelectableTextBlock Text="{Binding LogOutput}" 
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Copy All Logs" 
+                                  Command="{Binding CopyAllLogsCommand}"
+                                  CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Border}}"/>
+                        <MenuItem Header="Clear Logs" 
+                                  Command="{Binding ClearLogsCommand}"/>
+                    </ContextMenu>
+                </Border.ContextMenu>
+                <ScrollViewer Name="LogScrollViewer">
+                    <SelectableTextBlock Name="LogTextBlock" 
                                          FontFamily="avares://YoutubeDownloader.UI/Resources/Fonts#JetBrains Mono"
-                                         Foreground="#AAAAAA"
-                                         TextWrapping="Wrap"/>
+                                         TextWrapping="Wrap"
+                                         Margin="0,0,0,10"/>
                 </ScrollViewer>
             </Border>
             

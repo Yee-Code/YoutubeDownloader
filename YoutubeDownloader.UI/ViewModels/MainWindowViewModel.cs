@@ -4,7 +4,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using YoutubeDownloader.Core;
 using Avalonia.Controls;
+using System.Linq;
 using Avalonia.Platform.Storage;
+using System.Runtime.InteropServices;
 
 namespace YoutubeDownloader.UI.ViewModels;
 
@@ -19,7 +21,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _downloadPath = string.Empty;
 
     [ObservableProperty]
-    private string _logOutput = string.Empty;
+    private System.Collections.ObjectModel.ObservableCollection<Models.LogMessage> _logMessages = new();
 
     [ObservableProperty]
     private double _progressValue;
@@ -125,45 +127,53 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async void CheckDependencies()
     {
-        if (EnableDependencyLog) AppendLog("[CheckDependencies] Searching for yt-dlp...");
-        string ytDlpPath = DependencyUtils.GetExecutablePath("yt-dlp", msg =>
-        {
-            if (EnableDependencyLog) AppendLog(msg);
-        });
+        if (EnableDependencyLog) AppendLog("[CheckDependencies] Starting dependency checks...");
 
-        if (EnableDependencyLog) AppendLog("[CheckDependencies] Searching for ffmpeg...");
-        string ffmpegPath = DependencyUtils.GetExecutablePath("ffmpeg", msg =>
-        {
-            if (EnableDependencyLog) AppendLog(msg);
-        });
+        var ytDlpTask = Task.Run(() => _downloaderService.IsYtDlpInstalledAsync());
+        var ffmpegTask = Task.Run(() => _downloaderService.IsFfmpegInstalledAsync());
+        var nodeTask = Task.Run(() => _downloaderService.IsNodeInstalledAsync());
 
-        if (EnableDependencyLog) AppendLog("[CheckDependencies] Searching for node...");
-        string nodePath = DependencyUtils.GetExecutablePath("node", msg =>
-        {
-            if (EnableDependencyLog) AppendLog(msg);
-        });
+        await Task.WhenAll(ytDlpTask, ffmpegTask, nodeTask);
 
-        bool ytDlp = await _downloaderService.IsYtDlpInstalledAsync();
-        bool ffmpeg = await _downloaderService.IsFfmpegInstalledAsync();
-        bool node = await _downloaderService.IsNodeInstalledAsync();
-
-        if (!ytDlp)
-        {
-            AppendLog("Error: 'yt-dlp' is not found. Please install it via Homebrew: brew install yt-dlp");
-        }
-        if (!ffmpeg)
-        {
-            AppendLog("Warning: 'ffmpeg' is not found. Merging might fail.");
-        }
-        if (!node)
-        {
-            AppendLog("Warning: 'Node.js' is not found. Some videos might fail to download or be throttled.");
-            AppendLog("Please install Node.js from https://nodejs.org/");
-        }
+        bool ytDlp = await ytDlpTask;
+        bool ffmpeg = await ffmpegTask;
+        bool node = await nodeTask;
 
         if (ytDlp) AppendLog("yt-dlp detected.");
+        else
+        {
+            AppendLog("Error: 'yt-dlp' is not found.");
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                AppendLog("Please install it via Winget: winget install yt-dlp");
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                AppendLog("Please install it via Homebrew: brew install yt-dlp");
+            else
+                AppendLog("Please install it via your package manager.");
+        }
+
         if (ffmpeg) AppendLog("ffmpeg detected.");
+        else
+        {
+            AppendLog("Warning: 'ffmpeg' is not found. Merging might fail.");
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                AppendLog("Please install it via Winget: winget install Gyan.FFmpeg");
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                AppendLog("Please install it via Homebrew: brew install ffmpeg");
+            else
+                AppendLog("Please install it via your package manager.");
+        }
+
         if (node) AppendLog("Node.js detected.");
+        else
+        {
+            AppendLog("Warning: 'Node.js' is not found. Some videos might fail to download or be throttled.");
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                AppendLog("Please install it via Winget: winget install OpenJS.NodeJS");
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                AppendLog("Please install it via Homebrew: brew install node");
+            else
+                AppendLog("Please install it via your package manager.");
+        }
     }
 
     private void OnOutputReceived(object? sender, string e)
@@ -178,12 +188,41 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void AppendLog(string message)
     {
-        // Limit log size to prevent UI lag
-        if (LogOutput.Length > 10000)
+        Avalonia.Media.IBrush color;
+
+        if (message.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("[Error]", StringComparison.OrdinalIgnoreCase))
         {
-            LogOutput = LogOutput.Substring(LogOutput.Length - 5000);
+            color = Avalonia.Media.Brushes.Red;
         }
-        LogOutput += $"{message}\n";
+        else if (message.Contains("Warning", StringComparison.OrdinalIgnoreCase) ||
+                 message.Contains("[Warning]", StringComparison.OrdinalIgnoreCase))
+        {
+            color = Avalonia.Media.Brushes.Yellow;
+        }
+        else if (message.Contains("Success", StringComparison.OrdinalIgnoreCase) ||
+                 message.Contains("completed", StringComparison.OrdinalIgnoreCase))
+        {
+            color = Avalonia.Media.Brushes.LightGreen;
+        }
+        else if (message.Contains("[Service]") || message.Contains("[CheckDependencies]"))
+        {
+            color = Avalonia.Media.Brushes.DarkGray;
+        }
+        else
+        {
+            color = Avalonia.Media.Brushes.White;
+        }
+
+        Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
+        {
+            LogMessages.Add(new Models.LogMessage(message, color));
+            // Limit log size
+            if (LogMessages.Count > 1000)
+            {
+                LogMessages.RemoveAt(0);
+            }
+        });
     }
 
     [RelayCommand]
@@ -206,7 +245,7 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusMessage = "Downloading...";
         ProgressValue = 0;
         EstimatedTimeRemaining = "Estimating...";
-        LogOutput = string.Empty; // Clear log
+        LogMessages.Clear(); // Clear log
         AppendLog($"Starting download: {GetSafeUrlForLog(VideoUrl)}");
         AppendLog($"Output Path: {DownloadPath}");
 
@@ -263,6 +302,23 @@ public partial class MainWindowViewModel : ViewModelBase
             DataContext = this
         };
         settingsWindow.ShowDialog(topLevel);
+    }
+
+    [RelayCommand]
+    private async Task CopyAllLogsAsync(Control? control)
+    {
+        if (control == null) return;
+        var topLevel = TopLevel.GetTopLevel(control);
+        if (topLevel?.Clipboard == null) return;
+
+        var fullLog = string.Join(Environment.NewLine, LogMessages.Select(m => m.Text));
+        await topLevel.Clipboard.SetTextAsync(fullLog);
+    }
+
+    [RelayCommand]
+    private void ClearLogs()
+    {
+        LogMessages.Clear();
     }
 
     partial void OnEnableDependencyLogChanged(bool value) => SaveSettings();
