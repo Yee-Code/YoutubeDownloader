@@ -85,4 +85,9 @@ public partial class MainWindow : Window
             vm.SaveSettings();
         }
     }
+
+    private void OnCloseClicked(object? sender, System.EventArgs e)
+    {
+        Close();
+    }
 }

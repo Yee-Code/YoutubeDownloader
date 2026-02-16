@@ -39,10 +39,17 @@ public partial class MainWindowViewModel : ViewModelBase
     // Window properties for persistence
     public string WindowTitle { get; } = $"YouTube Downloader v{AppInfo.GetVersion()}";
 
-    public double WindowWidth { get; set; } = 800;
-    public double WindowHeight { get; set; } = 450;
-    public int WindowX { get; set; } = -1;
-    public int WindowY { get; set; } = -1;
+    [ObservableProperty]
+    private double _windowWidth = 800;
+
+    [ObservableProperty]
+    private double _windowHeight = 450;
+
+    [ObservableProperty]
+    private int _windowX = -1;
+
+    [ObservableProperty]
+    private int _windowY = -1;
 
     [ObservableProperty]
     private bool _enableDependencyLog = true;
@@ -324,4 +331,10 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     partial void OnEnableDependencyLogChanged(bool value) => SaveSettings();
+
+    [RelayCommand]
+    private void CloseWindow(Window? window)
+    {
+        window?.Close();
+    }
 }

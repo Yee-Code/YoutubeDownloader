@@ -6,6 +6,7 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="YoutubeDownloader.UI.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
+        x:Name="MainRoot"
         Title="{Binding WindowTitle}"
         TransparencyLevelHint="AcrylicBlur"
         Background="Transparent"
@@ -19,11 +20,18 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Cmd+W" Command="{Binding CloseWindowCommand}" CommandParameter="{Binding #MainRoot}" />
+        <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseWindowCommand}" CommandParameter="{Binding #MainRoot}" />
+    </Window.KeyBindings>
+
     <NativeMenu.Menu>
         <NativeMenu>
             <NativeMenuItem Header="File">
                 <NativeMenu>
                     <NativeMenuItem Header="Open" Gesture="Cmd+O"/>
+                    <NativeMenuItemSeparator/>
+                    <NativeMenuItem Header="Close" Gesture="Cmd+W" Click="OnCloseClicked"/>
                 </NativeMenu>
             </NativeMenuItem>
             <NativeMenuItem Header="Edit">

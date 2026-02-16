@@ -4,10 +4,15 @@ using Avalonia.Markup.Xaml;
 
 namespace YoutubeDownloader.UI.Views;
 
-public partial class SettingsWindow : Window // Checked SettingsWindow.axaml, it does not use LogOutput.
+public partial class SettingsWindow : Window
 {
     public SettingsWindow()
     {
         InitializeComponent();
+    }
+
+    private void OnCloseClicked(object? sender, System.EventArgs e)
+    {
+        Close();
     }
 }
